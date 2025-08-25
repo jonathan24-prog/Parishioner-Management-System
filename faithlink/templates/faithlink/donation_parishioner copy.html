@@ -1,0 +1,82 @@
+{% extends 'faithlink/basemenu.html' %}
+
+{% block content %}
+<div id="user-donation-app" class="container py-5">
+  <h2 class="mb-4" style="font-size: 2.2rem; color: #ce7659;">Make a Donation</h2>
+
+  <el-card class="shadow p-4">
+    <el-form @submit.native.prevent="submitDonation" label-position="top" label-width="120px">
+      <el-form-item label="Amount (₱)">
+        <el-input v-model.number="form.amount" placeholder="Enter amount or leave blank for in-kind"></el-input>
+      </el-form-item>
+
+      <el-form-item label="Description">
+        <el-input type="textarea" v-model="form.description" placeholder="Describe item or purpose of donation"></el-input>
+      </el-form-item>
+
+      <el-form-item label="Date">
+        <el-date-picker v-model="form.date" type="date" placeholder="Donation date" value-format="yyyy-MM-dd"></el-date-picker>
+      </el-form-item>
+
+      <el-form-item label="Anonymous?">
+        <el-switch v-model="form.anonymous"></el-switch>
+      </el-form-item>
+
+      <el-form-item label="Request Pickup?">
+        <el-switch v-model="form.pickup_requested"></el-switch>
+      </el-form-item>
+
+      <el-form-item>
+        <el-button type="success" @click="submitDonation">Submit Donation</el-button>
+      </el-form-item>
+    </el-form>
+  </el-card>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+new Vue({
+  el: '#user-donation-app',
+  data() {
+    return {
+      form: {
+        amount: '',
+        description: '',
+        date: '',
+        anonymous: false,
+        pickup_requested: false,
+      }
+    }
+  },
+  methods: {
+    getCookie(name) {
+      let cookieValue = null;
+      if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let cookie of cookies) {
+          const trimmed = cookie.trim();
+          if (trimmed.substring(0, name.length + 1) === (name + '=')) {
+            cookieValue = decodeURIComponent(trimmed.substring(name.length + 1));
+            break;
+          }
+        }
+      }
+      return cookieValue;
+    },
+    submitDonation() {
+      axios.post('/api/donations/', this.form, {
+        headers: { 'X-CSRFToken': this.getCookie('csrftoken') }
+      })
+      .then(() => {
+        this.$message.success("Donation submitted successfully!");
+        this.form = { amount: '', description: '', date: '', anonymous: false, pickup_requested: false };
+      })
+      .catch(() => {
+        this.$message.error("There was an error submitting your donation.");
+      });
+    }
+  }
+});
+</script>
+{% endblock %}

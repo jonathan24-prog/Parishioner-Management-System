@@ -1,0 +1,183 @@
+{% extends 'faithlink/basemenu.html' %}
+
+{% block content %}
+<div id="profile-app" class="container mx-auto py-8">
+  <div class="max-w-4xl mx-auto bg-white shadow-md rounded-lg overflow-hidden">
+    <!-- Profile Header -->
+    <div class="flex flex-col items-center py-8 bg-gray-100">
+      <div v-if="parishioner.profile_picture" class="w-32 h-32 rounded-full overflow-hidden">
+        <img :src="parishioner.profile_picture" alt="Profile Picture" class="object-cover w-full h-full" />
+      </div>
+      <div v-else class="w-32 h-32 rounded-full bg-blue-500 text-white flex items-center justify-center text-4xl font-bold">
+        [[ initials ]]
+      </div>
+
+      <h2 class="mt-4 text-2xl font-semibold text-gray-800">
+        [[ parishioner.first_name ]] [[ parishioner.last_name ]]
+      </h2>
+      <p class="text-gray-500">[[ parishioner.email ]]</p>
+
+      <!-- Edit button -->
+      <button v-if="!editMode" @click="editMode = true" class="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+        Edit Profile
+      </button>
+    </div>
+
+    <!-- Profile Information / Edit Form -->
+    <div class="p-6">
+      <h3 class="text-xl font-semibold mb-4 text-gray-700">Personal Information</h3>
+
+      <div v-if="!editMode" class="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-700">
+        <div><strong>Gender:</strong> [[ getGenderText ]]</div>
+        <div><strong>Marital Status:</strong> [[ getMaritalStatusText ]]</div>
+        <div><strong>Phone:</strong> [[ parishioner.phone_number || '—' ]]</div>
+        <div><strong>Nationality:</strong> [[ parishioner.nationality || '—' ]]</div>
+        <div><strong>Address:</strong> [[ parishioner.address || '—' ]]</div>
+        <div><strong>Emergency Contact:</strong> [[ parishioner.emergency_contact || '—' ]]</div>
+        <div><strong>Family Group:</strong> [[ parishioner.family_group || '—' ]]</div>
+        <div><strong>Date Approved:</strong> [[ parishioner.date_approved || '—' ]]</div>
+      </div>
+
+      <form v-else @submit.prevent="updateProfile" enctype="multipart/form-data" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- First Name -->
+        <div>
+          <label class="block text-gray-700 font-semibold mb-1">First Name</label>
+          <input type="text" v-model="parishioner.first_name" class="w-full border rounded px-3 py-2" required />
+        </div>
+
+        <!-- Last Name -->
+        <div>
+          <label class="block text-gray-700 font-semibold mb-1">Last Name</label>
+          <input type="text" v-model="parishioner.last_name" class="w-full border rounded px-3 py-2" required />
+        </div>
+
+        <!-- Phone Number -->
+        <div>
+          <label class="block text-gray-700 font-semibold mb-1">Phone Number</label>
+          <input type="text" v-model="parishioner.phone_number" class="w-full border rounded px-3 py-2" />
+        </div>
+
+        <!-- Address -->
+        <div>
+          <label class="block text-gray-700 font-semibold mb-1">Address</label>
+          <textarea v-model="parishioner.address" class="w-full border rounded px-3 py-2" rows="3"></textarea>
+        </div>
+
+        <!-- Profile Picture Upload -->
+        <div class="md:col-span-2">
+          <label class="block text-gray-700 font-semibold mb-1">Profile Picture</label>
+          <input type="file" @change="handleFileUpload" accept="image/*" class="border rounded px-3 py-2 w-full" />
+        </div>
+
+        <!-- Buttons -->
+        <div class="md:col-span-2 flex justify-end space-x-4 mt-4">
+          <button type="button" @click="cancelEdit" class="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500">Cancel</button>
+          <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+  // CSRF token helper
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i=0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+
+  // Set CSRF token header for axios
+  axios.defaults.headers.common['X-CSRFToken'] = getCookie('csrftoken');
+
+  new Vue({
+    el: '#profile-app',
+    delimiters: ['[[', ']]'],
+    data() {
+      return {
+        parishioner: {},
+        editMode: false,
+        profilePictureFile: null,
+      };
+    },
+    computed: {
+      initials() {
+        const fn = this.parishioner?.first_name || '';
+        const ln = this.parishioner?.last_name || '';
+        return `${fn.charAt(0)}${ln.charAt(0)}`.toUpperCase();
+      },
+      getGenderText() {
+        const g = this.parishioner?.gender;
+        return { M: 'Male', F: 'Female', O: 'Other' }[g] || '—';
+      },
+      getMaritalStatusText() {
+        const m = this.parishioner?.marital_status;
+        return {
+          S: 'Single',
+          M: 'Married',
+          W: 'Widowed',
+          D: 'Divorced',
+          O: 'Other'
+        }[m] || '—';
+      }
+    },
+    methods: {
+      fetchProfile() {
+        axios.get('/api/profile/')
+          .then(response => {
+            this.parishioner = response.data;
+          })
+          .catch(error => {
+            console.error('Error fetching profile:', error);
+          });
+      },
+      handleFileUpload(event) {
+        this.profilePictureFile = event.target.files[0];
+      },
+      updateProfile() {
+        const formData = new FormData();
+
+        formData.append('first_name', this.parishioner.first_name || '');
+        formData.append('last_name', this.parishioner.last_name || '');
+        formData.append('phone_number', this.parishioner.phone_number || '');
+        formData.append('address', this.parishioner.address || '');
+
+        if (this.profilePictureFile) {
+          formData.append('profile_picture', this.profilePictureFile);
+        }
+
+        axios.patch('/api/profile/', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        })
+          .then(response => {
+            this.parishioner = response.data;
+            this.editMode = false;
+            this.profilePictureFile = null;
+          })
+          .catch(error => {
+            console.error('Error updating profile:', error.response?.data || error);
+          });
+      },
+      cancelEdit() {
+        this.editMode = false;
+        this.profilePictureFile = null;
+        this.fetchProfile();
+      }
+    },
+    created() {
+      this.fetchProfile();
+    }
+  });
+</script>
+{% endblock %}

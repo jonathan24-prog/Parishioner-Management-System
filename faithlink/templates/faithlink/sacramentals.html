@@ -1,0 +1,287 @@
+{% extends 'faithlink/basemenu.html' %}
+
+{% block content %}
+<div id="app" style="padding: 20px;">
+  <h2 style="font-size: 2.5rem; font-weight: 700; color: #ce7659; margin-bottom: 20px;">
+    Sacramental Records (Admin)
+  </h2>
+
+  <!-- Filters -->
+  <el-form inline>
+    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 10px;">
+      
+      <!-- Add Record Button -->
+      <el-button
+        type="primary"
+        :disabled="!selectedParishioner"
+        @click="showAddModal = true"
+      >
+        Add Sacrament Record
+      </el-button>
+
+      <!-- Parishioner Selector -->
+      <el-form-item label="Select Parishioner" style="margin-bottom: 0;">
+        <el-select
+          v-model="selectedParishioner"
+          placeholder="Choose a parishioner"
+          filterable
+          @change="fetchRecords"
+          style="min-width: 200px;"
+        >
+          <el-option :key="null" label="All" :value="null"></el-option>
+          <el-option
+            v-for="p in parishioners"
+            :key="p.id"
+            :label="p.first_name + ' ' + p.last_name"
+            :value="p.id"
+          ></el-option>
+        </el-select>
+      </el-form-item>
+
+      <!-- Sacrament Type Selector -->
+      <el-form-item label="Sacrament Type" style="margin-bottom: 0;">
+        <el-select
+          v-model="selectedSacrament"
+          placeholder="Choose a sacrament"
+          clearable
+          @change="fetchRecords"
+          style="min-width: 200px;"
+        >
+          <el-option :key="null" label="All" :value="null"></el-option>
+          <el-option label="Baptism" value="Baptism"></el-option>
+          <el-option label="Confirmation" value="Confirmation"></el-option>
+          <el-option label="Eucharist" value="Eucharist"></el-option>
+          <el-option label="Marriage" value="Marriage"></el-option>
+          <el-option label="Anointing of the Sick" value="Anointing of the Sick"></el-option>
+        </el-select>
+      </el-form-item>
+    </div>
+  </el-form>
+
+  <!-- Add Record Modal -->
+  <el-dialog title="Add Sacrament Record" :visible.sync="showAddModal" width="500px">
+    <el-form :model="newRecord" ref="sacramentForm" label-width="120px">
+      
+      <el-form-item label="Sacrament" prop="sacrament">
+        <el-select v-model="newRecord.sacrament" placeholder="Select Sacrament">
+          <el-option label="Baptism" value="Baptism"></el-option>
+          <el-option label="Confirmation" value="Confirmation"></el-option>
+          <el-option label="Eucharist" value="Eucharist"></el-option>
+          <el-option label="Marriage" value="Marriage"></el-option>
+          <el-option label="Anointing of the Sick" value="Anointing of the Sick"></el-option>
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="Date Received" prop="date_received">
+        <el-date-picker
+          v-model="newRecord.date_received"
+          type="date"
+          placeholder="Select date"
+          style="width: 100%;"
+          value-format="yyyy-MM-dd"
+        ></el-date-picker>
+      </el-form-item>
+
+      <el-form-item label="Place Received" prop="place_received">
+        <el-input v-model="newRecord.place_received"></el-input>
+      </el-form-item>
+
+      <el-form-item label="Officiant" prop="officiant">
+        <el-input v-model="newRecord.officiant"></el-input>
+      </el-form-item>
+
+      <el-form-item label="Notes" prop="notes">
+        <el-input type="textarea" v-model="newRecord.notes"></el-input>
+      </el-form-item>
+    </el-form>
+
+    <div slot="footer" class="dialog-footer">
+      <el-button @click="showAddModal = false">Cancel</el-button>
+      <el-button type="primary" @click="submitRecord">Add</el-button>
+    </div>
+  </el-dialog>
+
+  <!-- Records Table -->
+  <el-table
+    v-if="records.length > 0"
+    :data="records"
+    style="width: 100%; margin-top: 20px;"
+    v-loading="loading"
+    element-loading-text="Loading Sacrament Records..."
+  >
+    <el-table-column prop="parishioner_name" label="Parishioner" sortable></el-table-column>
+    <el-table-column prop="sacrament" label="Sacrament" sortable></el-table-column>
+    <el-table-column prop="date_received" label="Date Received" sortable></el-table-column>
+    <el-table-column prop="place_received" label="Place Received"></el-table-column>
+    <el-table-column prop="officiant" label="Officiant"></el-table-column>
+    <el-table-column prop="notes" label="Notes"></el-table-column>
+    <el-table-column prop="certificate_requested" label="Certificate Requested">
+      <template #default="scope">
+        <span v-if="scope.row.certificate_requested">✅ Requested</span>
+        <span v-else>❌ No</span>
+      </template>
+    </el-table-column>
+    <el-table-column label="Actions" width="180">
+      <template #default="scope">
+        <el-button
+          size="mini"
+          type="success"
+          icon="el-icon-download"
+          @click="downloadCertificate(scope.row.id)"
+          :disabled="!scope.row.certificate_requested"
+        >Download</el-button>
+        <el-button
+          size="mini"
+          type="danger"
+          icon="el-icon-delete"
+          @click="deleteRecord(scope.row.id)"
+          circle
+        ></el-button>
+      </template>
+    </el-table-column>
+  </el-table>
+
+  <!-- Empty State -->
+  <div v-if="!loading && records.length === 0" style="margin-top: 20px; color: #999;">
+    No sacrament records found.
+  </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+new Vue({
+  el: '#app',
+  data() {
+    return {
+      records: [],
+      parishioners: [],
+      selectedParishioner: null,
+      selectedSacrament: null,
+      showAddModal: false,
+      loading: false,
+      newRecord: {
+        sacrament: '',
+        date_received: '',
+        place_received: '',
+        officiant: '',
+        notes: '',
+      },
+    };
+  },
+  methods: {
+    fetchParishioners() {
+      axios.get('/api/parishioners/')
+        .then(res => { this.parishioners = res.data; })
+        .catch(err => {
+          console.error('Failed to fetch parishioners:', err);
+          this.$notify.error({ title: 'Error', message: 'Could not load parishioners.' });
+        });
+    },
+    fetchRecords() {
+      this.loading = true;
+      let url = '/api/sacrament-records/?';
+
+      if (this.selectedParishioner !== null) {
+        url += `parishioner_id=${this.selectedParishioner}&`;
+      }
+      if (this.selectedSacrament !== null) {
+        url += `sacrament=${encodeURIComponent(this.selectedSacrament)}&`;
+      }
+
+      axios.get(url)
+        .then(res => { this.records = res.data; })
+        .catch(err => {
+          console.error('Failed to fetch records:', err);
+          this.$notify.error({ title: 'Error', message: 'Could not load sacramental records.' });
+        })
+        .finally(() => { this.loading = false; });
+    },
+    downloadCertificate(recordId) {
+      this.loading = true;
+      axios({
+        url: `/api/sacrament-record/${recordId}/certificate/`,
+        method: 'GET',
+        responseType: 'blob',
+      })
+      .then(response => {
+        const blob = new Blob([response.data], { type: 'application/pdf' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `Sacrament_Certificate_${recordId}.pdf`;
+        link.click();
+        URL.revokeObjectURL(link.href);
+      })
+      .catch(() => {
+        this.$notify.error({ title: 'Download Failed', message: 'Unable to download the certificate.' });
+      })
+      .finally(() => { this.loading = false; });
+    },
+    submitRecord() {
+      if (!this.selectedParishioner) {
+        this.$notify.error({ title: 'Error', message: 'Please select a parishioner.' });
+        return;
+      }
+
+      const payload = {
+        parishioner: this.selectedParishioner,
+        sacrament: this.newRecord.sacrament,
+        date_received: this.newRecord.date_received || null,
+        place_received: this.newRecord.place_received || null,
+        officiant: this.newRecord.officiant || null,
+        notes: this.newRecord.notes || null,
+      };
+
+      axios.post('/api/sacrament-records/', payload, {
+        headers: { 'X-CSRFToken': this.getCookie('csrftoken') }
+      })
+      .then(() => {
+        this.$notify({ title: 'Success', message: 'Record added', type: 'success' });
+        this.showAddModal = false;
+        this.resetForm();
+        this.fetchRecords();
+      })
+      .catch(error => {
+        console.error('Failed to add:', error);
+        const msg = error.response?.data ? JSON.stringify(error.response.data) : 'Error occurred';
+        this.$notify.error({ title: 'Error', message: msg });
+      });
+    },
+    deleteRecord(id) {
+      this.$confirm('Are you sure to delete this record?', 'Warning', {
+        confirmButtonText: 'Yes',
+        cancelButtonText: 'No',
+        type: 'warning'
+      }).then(() => {
+        axios.delete(`/api/sacrament-records/${id}/`, {
+          headers: { 'X-CSRFToken': this.getCookie('csrftoken') }
+        })
+        .then(() => {
+          this.$notify({ title: 'Deleted', message: 'Record removed', type: 'success' });
+          this.fetchRecords();
+        })
+        .catch(() => {
+          this.$notify.error({ title: 'Error', message: 'Delete failed' });
+        });
+      }).catch(() => {});
+    },
+    resetForm() {
+      this.newRecord = { sacrament: '', date_received: '', place_received: '', officiant: '', notes: '' };
+    },
+    getCookie(name) {
+      const cookies = document.cookie.split(';').map(c => c.trim());
+      for (const cookie of cookies) {
+        if (cookie.startsWith(name + '=')) {
+          return decodeURIComponent(cookie.substring(name.length + 1));
+        }
+      }
+      return null;
+    }
+  },
+  created() {
+    this.fetchParishioners();
+    this.fetchRecords();
+  }
+});
+</script>
+{% endblock %}

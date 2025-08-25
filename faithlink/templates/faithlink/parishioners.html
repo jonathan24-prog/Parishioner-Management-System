@@ -1,0 +1,208 @@
+{% extends 'faithlink/basemenu.html' %}
+
+{% block content %}
+<div id="app" style="padding: 20px 20px;">
+  <!-- Loading Spinner -->
+  <div class="semipolar-spinner" v-show="isLoading" :style="spinnerStyle">
+    <div class="ring"></div>
+    <div class="ring"></div>
+    <div class="ring"></div>
+    <div class="ring"></div>
+    <div class="ring"></div>
+    <br><br>
+    <p style="text-align: center; color: #ff1d5e;">Fetching...</p>
+  </div>
+
+  <div v-show="!isLoading">
+    <h2 style="font-size: 2.5rem; font-weight: 700; color: #ce7659; margin: 15px 0px;">
+      Parishioners Directory
+    </h2>
+    <h3 class="mb-4 text-muted">Parishioners / Home</h3>
+
+    <!-- Tabs and Table -->
+    <div>
+      <el-tabs
+        v-model="selectedTable"
+        type="card"
+        size="small"
+        class="sticky-tabs"
+        style="margin-bottom: 10px;"
+      >
+        <el-tab-pane label="Parishioners" name="parishioners"></el-tab-pane>
+        <el-tab-pane name="other">
+          <template #label>
+            Pending Approvals
+            <el-badge v-if="parishioners.length > 0" :value="parishioners.length" class="ml-1" type="danger" />
+          </template>
+        </el-tab-pane>
+      </el-tabs>
+
+      <!-- Parishioners Table -->
+      <v-client-table v-if="selectedTable === 'parishioners'" :columns="columns" :data="ids">
+        <template slot="action" slot-scope="props">
+          <a :href="props.row.uri">
+            <el-button type="success" size="small" circle icon="el-icon-edit"></el-button>
+          </a>
+        </template>
+      </v-client-table>
+
+      <!-- Pending Approvals Table -->
+      <v-client-table v-else :columns="columns" :data="parishioners">
+        <template slot="action" slot-scope="props">
+          <el-button type="success" size="small" circle icon="el-icon-check" @click="approveParishioner(props.row.id)"></el-button>
+          <el-button type="danger" size="small" circle icon="el-icon-close" @click="declineParishioner(props.row.id)"></el-button>
+        </template>
+      </v-client-table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+  Vue.use(VueTables.ClientTable);
+  Vue.use(VueLoading);
+  Vue.component('loading', VueLoading);
+
+  new Vue({
+    el: '#app',
+    data() {
+      return {
+        columns: ['id', 'username', 'address', 'action'],  // Added 'address' here
+        parishioners: [],
+        ids: [],
+        selectedTable: 'parishioners',
+        isLoading: true,
+        spinnerStyle: {}
+      };
+    },
+    methods: {
+      fetchParishioners() {
+        this.isLoading = true;
+
+        axios.get('/api/customusers')
+          .then(res => {
+            this.parishioners = res.data.map(user => ({
+              id: user.id,
+              username: user.username,
+              uri: `/editparishioner/${user.id}`
+            }));
+          })
+          .catch(err => {
+            console.error('Failed to fetch customusers:', err);
+          });
+
+        axios.get('/api/parishioners')
+          .then(res => {
+            this.ids = res.data.map(user => ({
+              id: user.id,
+              username: `${user.first_name} ${user.last_name}`,
+              address: user.address,  // Added address here
+              uri: `/editparishioner/${user.id}`
+            }));
+          })
+          .catch(err => {
+            console.error('Failed to fetch parishioners:', err);
+          })
+          .finally(() => {
+            this.isLoading = false;
+          });
+      },
+      approveParishioner(id) {
+        axios.patch(`/api/customusers/${id}/approve_parishioner/`, {}, {
+          headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+          }
+        })
+        .then(response => {
+          this.fetchParishioners();
+          this.$notify({
+            title: 'Success',
+            message: 'Parishioner approved successfully!',
+            type: 'success'
+          });
+        })
+        .catch(error => {
+          this.$notify({
+            title: 'Error',
+            message: 'Failed to approve the parishioner.',
+            type: 'error'
+          });
+        });
+      },
+      declineParishioner(id) {
+        console.log("Decline parishioner ID:", id);
+      }
+    },
+    created() {
+      this.fetchParishioners();
+    }
+  });
+
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+</script>
+{% endblock %}
+
+<style>
+  .semipolar-spinner, .semipolar-spinner * {
+    box-sizing: border-box;
+  }
+
+  .semipolar-spinner {
+    position: fixed;
+    z-index: 999;
+    height: 5em;
+    width: 5em;
+    margin: auto;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+  }
+
+  .semipolar-spinner .ring {
+    border-radius: 50%;
+    position: absolute;
+    border: calc(65px * 0.05) solid transparent;
+    border-top-color: #ff1d5e;
+    border-left-color: #ff1d5e;
+    animation: semipolar-spinner-animation 2s infinite;
+  }
+
+  .semipolar-spinner .ring:nth-child(1) { height: calc(65px - 65px * 0); width: calc(65px - 65px * 0); top: 0; left: 0; animation-delay: 800ms; z-index: 5; }
+  .semipolar-spinner .ring:nth-child(2) { height: calc(65px - 65px * 0.2); width: calc(65px - 65px * 0.2); top: calc(65px * 0.1); left: calc(65px * 0.1); animation-delay: 600ms; z-index: 4; }
+  .semipolar-spinner .ring:nth-child(3) { height: calc(65px - 65px * 0.4); width: calc(65px - 65px * 0.4); top: calc(65px * 0.2); left: calc(65px * 0.2); animation-delay: 400ms; z-index: 3; }
+  .semipolar-spinner .ring:nth-child(4) { height: calc(65px - 65px * 0.6); width: calc(65px - 65px * 0.6); top: calc(65px * 0.3); left: calc(65px * 0.3); animation-delay: 200ms; z-index: 2; }
+  .semipolar-spinner .ring:nth-child(5) { height: calc(65px - 65px * 0.8); width: calc(65px - 65px * 0.8); top: calc(65px * 0.4); left: calc(65px * 0.4); animation-delay: 0ms; z-index: 1; }
+
+  @keyframes semipolar-spinner-animation {
+    50% {
+      transform: rotate(360deg) scale(0.7);
+    }
+  }
+
+  .sticky-tabs {
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 5;
+    padding-top: 5px;
+  }
+  .el-badge {
+    vertical-align: top;
+    margin-left: 6px;
+  }
+</style>

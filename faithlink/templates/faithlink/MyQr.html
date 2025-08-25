@@ -1,0 +1,61 @@
+{% extends 'faithlink/basemenu.html' %}
+
+{% block content %}
+<style>
+    /* Print Styles */
+    @media print {
+        body * {
+            visibility: hidden;
+        }
+
+        #qr-print-area, #qr-print-area * {
+            visibility: visible;
+        }
+
+        #qr-print-area {
+            position: absolute;
+            top: 900px;
+            left: 20%;
+            transform: translate(-50%, -50%);
+            width: 15in;
+            height: 15in;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #qr-print-area img {
+            width: 100%;
+            height: auto;
+        }
+    }
+</style>
+
+<div class="container mt-5 text-center">
+    <h2 class="mb-4" style="font-size: 2.5rem; font-weight: bold; color: #ce7659;">My QR Code</h2>
+
+    <div class="card shadow-lg p-4 border-0 rounded-4 mx-auto" style="max-width: 400px;">
+        <div class="card-body">
+           
+            <!-- QR Code Display Area -->
+            <div id="qr-print-area">
+                <img src="{% url 'generate_parishioner_qr' %}"
+                     alt="My QR Code"
+                     class="img-fluid mb-3"
+                     style="background: white; padding: 10px; border-radius: 12px; max-width: 100%; height: auto; margin-left: 30px;">
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="d-grid gap-2 mt-4">
+                <a href="{% url 'generate_parishioner_qr' %}" download class="btn btn-success">
+                    <i class="fas fa-download"></i> Download QR Code
+                </a>
+                <button class="btn btn-primary" onclick="window.print()">
+                    <i class="fas fa-print"></i> Print QR Code
+                </button>
+                
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

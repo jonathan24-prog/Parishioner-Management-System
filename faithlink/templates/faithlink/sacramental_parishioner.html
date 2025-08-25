@@ -1,0 +1,110 @@
+{% extends 'faithlink/basemenu.html' %}
+
+{% block content %}
+<div id="app" style="padding: 20px;">
+  <h2 style="font-size: 2.5rem; font-weight: 700; color: #ce7659; margin-bottom: 20px;">
+    My Sacramental Records
+  </h2>
+
+  <el-table
+    :data="records"
+    style="width: 100%;"
+    v-loading="loading"
+    element-loading-text="Loading Your Sacramental Records..."
+    v-if="records.length > 0"
+  >
+    <el-table-column prop="sacrament" label="Sacrament" sortable></el-table-column>
+    <el-table-column prop="date_received" label="Date Received" sortable></el-table-column>
+    <el-table-column prop="place_received" label="Place Received"></el-table-column>
+    <el-table-column prop="officiant" label="Officiant"></el-table-column>
+    <el-table-column prop="notes" label="Notes"></el-table-column>
+    <el-table-column label="Certificate Request" width="220">
+      <template v-slot="scope">
+        <el-button
+  type="primary"
+  size="mini"
+  icon="el-icon-document"
+  @click="requestCertificate(scope.row.id)"
+  :disabled="scope.row.certificate_requested"
+  v-text="scope.row.certificate_requested ? 'Requested' : 'Request Certificate'"
+>
+</el-button>
+
+      </template>
+    </el-table-column>
+  </el-table>
+
+  <div v-if="!loading && records.length === 0" style="margin-top: 20px; color: #999;">
+    You have no recorded sacraments.
+  </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+new Vue({
+  el: '#app',
+  data() {
+    return {
+      records: [],
+      loading: false,
+    };
+  },
+  methods: {
+    fetchMyRecords() {
+      this.loading = true;
+      axios.get('/api/sacrament-record/my/')
+        .then(res => {
+          this.records = res.data;
+        })
+        .catch(err => {
+          console.error('Failed to load records:', err);
+          this.$notify.error({ title: 'Error', message: 'Could not load your sacrament records.' });
+        })
+        .finally(() => {
+          this.loading = false;
+        });
+    },
+    requestCertificate(recordId) {
+      this.loading = true;
+      axios.post(`/api/sacrament-record/${recordId}/request_certificate/`, {}, {
+  headers: { 'X-CSRFToken': this.getCookie('csrftoken') }
+})
+
+      .then(() => {
+        this.$notify({ title: 'Requested', message: 'Your certificate request has been sent.', type: 'success' });
+        const rec = this.records.find(r => r.id === recordId);
+        if (rec) rec.certificate_requested = true;
+      })
+      .catch(error => {
+        console.error('Error requesting certificate:', error);
+        this.$notify.error({
+          title: 'Request Failed',
+          message: 'Unable to request the certificate.',
+        });
+      })
+      .finally(() => {
+        this.loading = false;
+      });
+    },
+    getCookie(name) {
+      let cookieValue = null;
+      if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let cookie of cookies) {
+          cookie = cookie.trim();
+          if (cookie.startsWith(name + '=')) {
+            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+            break;
+          }
+        }
+      }
+      return cookieValue;
+    }
+  },
+  created() {
+    this.fetchMyRecords();
+  }
+});
+</script>
+{% endblock %}

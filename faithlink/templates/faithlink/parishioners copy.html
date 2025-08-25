@@ -1,0 +1,211 @@
+{% extends 'faithlink/basemenu.html' %}
+
+{% block content %}
+<div id="app" style="padding: 20px 20px;">
+  <!-- Loading Spinner -->
+  <div class="semipolar-spinner" v-show="isLoading" :style="spinnerStyle">
+    <div class="ring"></div>
+    <div class="ring"></div>
+    <div class="ring"></div>
+    <div class="ring"></div>
+    <div class="ring"></div>
+    <br><br>
+    <p style="text-align: center; color: #ff1d5e;">Fetching...</p>
+  </div>
+
+  <div v-show="!isLoading">
+    <!-- Accept Parishioners Button -->
+    <el-card>
+      <a href="{% url 'parishionersReq' %}">
+        <el-button type="success" size="small">Accept Parishioners</el-button>
+      </a>
+    </el-card>
+
+    <h2 style="font-size: 2.5rem; font-weight: 700; color: #ce7659; margin: 15px 0px;">
+      Parishioners Directory
+    </h2>
+    <h3 class="mb-4 text-muted">Parishioners / Home</h3>
+
+    <!-- Parishioner IDs Table -->
+    <el-card>
+      <v-client-table :columns="columns" :data="ids">
+        <template slot="action" slot-scope="props">
+          <a :href="props.row.uri">
+            <el-button type="success" size="small" circle icon="el-icon-edit"></el-button>
+          </a>
+        </template>
+      </v-client-table>
+    </el-card>
+  </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+  Vue.use(VueTables.ClientTable);
+  Vue.use(VueLoading);
+  Vue.component('loading', VueLoading);
+
+  new Vue({
+    el: '#app',
+    data() {
+      return {
+        columns: ['id', 'username', 'action'],
+        parishioners: [],
+        ids: [],
+        isLoading: true,
+        spinnerStyle: {} // Add custom style if needed
+      };
+    },
+    methods: {
+      approveParishioner(id) {
+        axios.patch(`/api/customusers/${id}/approve_parishioner/`, {}, {
+          headers: { 'X-CSRFToken': getCookie('csrftoken') }
+        })
+        .then(() => {
+          this.fetchParishioners();
+          this.$notify({
+            title: 'Success',
+            message: 'Parishioner approved successfully!',
+            type: 'success'
+          });
+        })
+        .catch(error => {
+          console.error('Error approving parishioner:', error);
+          this.$notify({
+            title: 'Error',
+            message: 'Failed to approve the parishioner.',
+            type: 'error'
+          });
+        });
+      },
+      declineParishioner(id) {
+        this.$notify({
+          title: 'Info',
+          message: 'Decline functionality not implemented yet.',
+          type: 'info'
+        });
+      },
+      fetchParishioners() {
+        this.isLoading = true;
+
+        axios.get('/api/customusers')
+          .then(res => {
+            this.parishioners = res.data.map(user => ({
+              id: user.id,
+              username: user.username,
+              uri: `/editparishioner/${user.id}`
+            }));
+          })
+          .catch(err => {
+            console.error('Failed to fetch customusers:', err);
+          });
+
+        axios.get('/api/parishioners')
+          .then(res => {
+            this.ids = res.data.map(user => ({
+              id: user.id,
+              username: `${user.first_name} ${user.last_name}`,
+              uri: `/editparishioner/${user.id}`
+            }));
+          })
+          .catch(err => {
+            console.error('Failed to fetch parishioners:', err);
+          })
+          .finally(() => {
+            this.isLoading = false;
+          });
+      }
+    },
+    created() {
+      this.fetchParishioners();
+    }
+  });
+
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let cookie of cookies) {
+        cookie = cookie.trim();
+        if (cookie.startsWith(name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+</script>
+{% endblock %}
+
+<style>
+  .semipolar-spinner, .semipolar-spinner * {
+    box-sizing: border-box;
+  }
+
+  .semipolar-spinner {
+    position: fixed;
+    z-index: 999;
+    height: 5em;
+    width: 5em;
+    margin: auto;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+  }
+
+  .semipolar-spinner .ring {
+    border-radius: 50%;
+    position: absolute;
+    border: calc(65px * 0.05) solid transparent;
+    border-top-color: #ff1d5e;
+    border-left-color: #ff1d5e;
+    animation: semipolar-spinner-animation 2s infinite;
+  }
+
+  .semipolar-spinner .ring:nth-child(1) {
+    height: calc(65px - 65px * 0.2 * 0);
+    width: calc(65px - 65px * 0.2 * 0);
+    top: calc(65px * 0.1 * 0);
+    left: calc(65px * 0.1 * 0);
+    animation-delay: calc(2000ms * 0.1 * 4);
+    z-index: 5;
+  }
+
+  .semipolar-spinner .ring:nth-child(2) {
+    height: calc(65px - 65px * 0.2 * 1);
+    width: calc(65px - 65px * 0.2 * 1);
+    top: calc(65px * 0.1 * 1);
+    left: calc(65px * 0.1 * 1);
+    animation-delay: calc(2000ms * 0.1 * 3);
+    z-index: 4;
+  }
+
+  .semipolar-spinner .ring:nth-child(3) {
+    height: calc(65px - 65px * 0.2 * 2);
+    width: calc(65px - 65px * 0.2 * 2);
+    top: calc(65px * 0.1 * 2);
+    left: calc(65px * 0.1 * 2);
+    animation-delay: calc(2000ms * 0.1 * 2);
+    z-index: 3;
+  }
+
+  .semipolar-spinner .ring:nth-child(4) {
+    height: calc(65px - 65px * 0.2 * 3);
+    width: calc(65px - 65px * 0.2 * 3);
+    top: calc(65px * 0.1 * 3);
+    left: calc(65px * 0.1 * 3);
+    animation-delay: calc(2000ms * 0.1 * 1);
+    z-index: 2;
+  }
+
+  .semipolar-spinner .ring:nth-child(5) {
+    height: calc(65px - 65px * 0.2 * 4);
+    width: calc(65px - 65px * 0.2 * 4);
+    top: calc(65px * 0.1 * 4);
+    left: calc(65px * 0.1 * 4);
+    animation-delay: calc(2000ms * 0.1 * 0);
+    z-index: 1;
+  }

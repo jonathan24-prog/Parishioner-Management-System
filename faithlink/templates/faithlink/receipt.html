@@ -1,0 +1,80 @@
+{% extends 'faithlink/basemenu.html' %}
+
+{% block content %}
+<div class="container mt-5 p-4 border rounded shadow-lg" style="max-width: 800px; background: #fff;">
+  <div class="text-center mb-4">
+    <h2 style="color: #ce7659; font-weight: 700;">Donation Receipt</h2>
+    <p class="text-muted">Thank you for your generosity!</p>
+  </div>
+
+  <table class="table table-bordered">
+    <tbody>
+      <tr>
+        <th>Receipt No.</th>
+        <td>#{{ donation.id }}</td>
+      </tr>
+      <tr>
+      <th>Donor</th>
+      <td>
+        {% if donation.anonymous %}
+          Anonymous
+        {% else %}
+          {{ donation.donor }}
+        {% endif %}
+      </td>
+    </tr>
+
+      <tr>
+        <th>Donation Type</th>
+        <td>{{ donation.type|title }}</td>
+      </tr>
+      {% if donation.type == 'money' %}
+      <tr>
+        <th>Amount</th>
+        <td>₱{{ donation.amount|floatformat:2 }}</td>
+      </tr>
+      <tr>
+        <th>Payment Method</th>
+        <td>{{ donation.payment_method }}</td>
+      </tr>
+      {% else %}
+      <tr>
+        <th>Item Name</th>
+        <td>{{ donation.item_name }}</td>
+      </tr>
+      <tr>
+        <th>Quantity</th>
+        <td>{{ donation.quantity }}</td>
+      </tr>
+      <tr>
+        <th>Condition</th>
+        <td>{{ donation.item_condition }}</td>
+      </tr>
+      {% if donation.photo %}
+      <tr>
+        <th>Item Photo</th>
+        <td><img src="{{ donation.photo.url }}" alt="Item Photo" style="max-width: 200px;"></td>
+      </tr>
+      {% endif %}
+      {% endif %}
+      <tr>
+        <th>Description</th>
+        <td>{{ donation.description }}</td>
+      </tr>
+      <tr>
+        <th>Date</th>
+        <td>{{ donation.date|date:"F d, Y" }}</td>
+      </tr>
+      <tr>
+        <th>Pickup Requested</th>
+        <td>{{ donation.pickup_requested|yesno:"Yes,No" }}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="text-center mt-4">
+    <p style="font-size: 0.9rem; color: #666;">This document serves as a formal acknowledgment of your donation. No goods or services were provided in exchange.</p>
+    <p class="fw-bold">- FaithLink Parish Management</p>
+  </div>
+</div>
+{% endblock %}

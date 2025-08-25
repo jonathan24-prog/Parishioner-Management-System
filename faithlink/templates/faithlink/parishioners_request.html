@@ -1,0 +1,224 @@
+{% extends 'faithlink/basemenu.html' %}
+
+{% block content %}
+<div id="app" style="padding: 20px 20px;">
+  <!-- Loading Spinner -->
+  <div class="semipolar-spinner" v-show="isLoading" :style="spinnerStyle">
+    <div class="ring"></div>
+    <div class="ring"></div>
+    <div class="ring"></div>
+    <div class="ring"></div>
+    <div class="ring"></div>
+    <br>
+    <br>
+    <br>
+    <p>Fetching</p>
+  </div>
+
+  <!-- Back Button -->
+  <el-button type="primary" icon="el-icon-arrow-left" @click="goBack" style="margin-bottom: 15px;">
+    Back
+  </el-button>
+
+  <!-- Parishioner Table -->
+  <el-card>
+    <v-client-table :columns="columns" :data="parishioners">
+      <template slot="action" slot-scope="props">
+        <el-button type="success" size="small" circle icon="el-icon-check" @click="approveParishioner(props.row.id)"></el-button>
+        <el-button type="danger" size="small" circle icon="el-icon-close" @click="declineParishioner(props.row.id)"></el-button>
+      </template>
+    </v-client-table>
+  </el-card>
+
+  <!-- Parishioner IDs Table -->
+  <!-- <el-card>
+    <v-client-table :columns="['id','username','action']" :data="ids ">
+      <a :href="props.row.uri" slot="action" slot-scope="props">
+        <el-button type="success" size="small" circle icon="el-icon-edit"></el-button>
+      </a>
+    </v-client-table>
+  </el-card> -->
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+  Vue.use(VueTables.ClientTable);
+  Vue.use(VueLoading);
+  Vue.component('loading', VueLoading);
+
+  new Vue({
+    el: '#app',
+    data() {
+      return {
+        columns: ["id", "username", "action"],
+        parishioners: [],
+        ids: [],
+        isLoading: true,
+        fullPage: false,
+        courses: []
+      };
+    },
+    methods: {
+      approveParishioner(id) {
+        axios.patch('/api/customusers/' + id + '/approve_parishioner/', {}, {
+          headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+          }
+        })
+        .then(response => {
+          console.log('Parishioner approved:', response.data);
+          this.fetchParishioners();
+
+          this.$notify({
+            title: 'Success',
+            message: 'Parishioner approved successfully!',
+            type: 'success'
+          });
+        })
+        .catch(error => {
+          console.error('Error approving the parishioner:', error);
+
+          this.$notify({
+            title: 'Error',
+            message: 'Failed to approve the parishioner.',
+            type: 'error'
+          });
+        });
+      },
+      declineParishioner(id) {
+        // Your decline logic here
+        console.log("Decline parishioner ID:", id);
+      },
+      fetchParishioners() {
+        axios.get('/api/customusers')
+          .then(res => {
+            this.parishioners = res.data.map(user => ({
+              id: user.id,
+              username: user.username,
+              uri: "/editparishioner/" + user.id
+            }));
+          });
+      },
+      goBack() {
+        window.location = document.referrer || '/';
+
+        // Or use: window.location.href = '/your-target-page';
+      }
+    },
+    created() {
+      console.log("Fetching CustomUser data");
+      axios.get('/api/customusers').then(res => {
+        this.parishioners = res.data.map(user => ({
+          id: user.id,
+          username: user.username,
+          uri: "/editparishioner/" + user.id  
+        }));
+        this.isLoading = false;
+      });
+      axios.get('/api/parishioners').then(res => {
+        this.ids = res.data.map(user => ({
+          id: user.id,
+          username: user.name,
+          uri: "/editparishioner/" + user.id  
+        }));
+        this.isLoading = false;
+      });
+    }
+  });
+
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+</script>
+{% endblock %}
+
+<style>
+  .semipolar-spinner, .semipolar-spinner * {
+    box-sizing: border-box;
+  }
+
+  .semipolar-spinner {
+    position: fixed;
+    z-index: 999;
+    height: 5em;
+    width: 5em;
+    overflow: visible;
+    margin: auto;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+  }
+
+  .semipolar-spinner .ring {
+    border-radius: 50%;
+    position: absolute;
+    border: calc(65px * 0.05) solid transparent;
+    border-top-color: #ff1d5e;
+    border-left-color: #ff1d5e;
+    animation: semipolar-spinner-animation 2s infinite;
+  }
+
+  .semipolar-spinner .ring:nth-child(1) {
+    height: calc(65px - 65px * 0.2 * 0);
+    width: calc(65px - 65px * 0.2 * 0);
+    top: calc(65px * 0.1 * 0);
+    left: calc(65px * 0.1 * 0);
+    animation-delay: calc(2000ms * 0.1 * 4);
+    z-index: 5;
+  }
+
+  .semipolar-spinner .ring:nth-child(2) {
+    height: calc(65px - 65px * 0.2 * 1);
+    width: calc(65px - 65px * 0.2 * 1);
+    top: calc(65px * 0.1 * 1);
+    left: calc(65px * 0.1 * 1);
+    animation-delay: calc(2000ms * 0.1 * 3);
+    z-index: 4;
+  }
+
+  .semipolar-spinner .ring:nth-child(3) {
+    height: calc(65px - 65px * 0.2 * 2);
+    width: calc(65px - 65px * 0.2 * 2);
+    top: calc(65px * 0.1 * 2);
+    left: calc(65px * 0.1 * 2);
+    animation-delay: calc(2000ms * 0.1 * 2);
+    z-index: 3;
+  }
+
+  .semipolar-spinner .ring:nth-child(4) {
+    height: calc(65px - 65px * 0.2 * 3);
+    width: calc(65px - 65px * 0.2 * 3);
+    top: calc(65px * 0.1 * 3);
+    left: calc(65px * 0.1 * 3);
+    animation-delay: calc(2000ms * 0.1 * 1);
+    z-index: 2;
+  }
+
+  .semipolar-spinner .ring:nth-child(5) {
+    height: calc(65px - 65px * 0.2 * 4);
+    width: calc(65px - 65px * 0.2 * 4);
+    top: calc(65px * 0.1 * 4);
+    left: calc(65px * 0.1 * 4);
+    animation-delay: calc(2000ms * 0.1 * 0);
+    z-index: 1;
+  }
+
+  @keyframes semipolar-spinner-animation {
+    50% {
+      transform: rotate(360deg) scale(0.7);
+    }
+  }
+</style>

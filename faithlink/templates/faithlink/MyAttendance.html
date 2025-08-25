@@ -1,0 +1,124 @@
+{% extends 'faithlink/basemenu.html' %}
+
+{% block content %}
+<div class="container mt-5">
+  <h2 class="text-center mb-4 fw-bold">Attendance History</h2>
+
+  <!-- Nav tabs -->
+  <ul class="nav nav-tabs mb-3" id="attendanceTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" id="morning-tab" data-bs-toggle="tab" data-bs-target="#morning" type="button" role="tab" aria-controls="morning" aria-selected="true">
+        Morning Mass
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="afternoon-tab" data-bs-toggle="tab" data-bs-target="#afternoon" type="button" role="tab" aria-controls="afternoon" aria-selected="false">
+        Afternoon Mass
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="evening-tab" data-bs-toggle="tab" data-bs-target="#evening" type="button" role="tab" aria-controls="evening" aria-selected="false">
+        Evening Mass
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="event-tab" data-bs-toggle="tab" data-bs-target="#event" type="button" role="tab" aria-controls="event" aria-selected="false">
+        Event Attendance
+      </button>
+    </li>
+  </ul>
+
+  <!-- Tab panes -->
+  <div class="tab-content" id="attendanceTabsContent">
+
+    <!-- Morning Mass Tab -->
+    <div class="tab-pane fade show active" id="morning" role="tabpanel" aria-labelledby="morning-tab">
+      <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-light fw-semibold">Morning Mass Attendance</div>
+        <div class="card-body p-3">
+          <input type="text" class="form-control mb-3" id="searchMorning" placeholder="Search Morning Mass..." onkeyup="filterTable('morningTable', 'searchMorning')">
+          {% include 'faithlink/partials/user_attendance_table.html' with records=morning_mass table_id='morningTable' %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Afternoon Mass Tab -->
+    <div class="tab-pane fade" id="afternoon" role="tabpanel" aria-labelledby="afternoon-tab">
+      <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-light fw-semibold">Afternoon Mass Attendance</div>
+        <div class="card-body p-3">
+          <input type="text" class="form-control mb-3" id="searchAfternoon" placeholder="Search Afternoon Mass..." onkeyup="filterTable('afternoonTable', 'searchAfternoon')">
+          {% include 'faithlink/partials/user_attendance_table.html' with records=afternoon_mass table_id='afternoonTable' %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Evening Mass Tab -->
+    <div class="tab-pane fade" id="evening" role="tabpanel" aria-labelledby="evening-tab">
+      <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-light fw-semibold">Evening Mass Attendance</div>
+        <div class="card-body p-3">
+          <input type="text" class="form-control mb-3" id="searchEvening" placeholder="Search Evening Mass..." onkeyup="filterTable('eveningTable', 'searchEvening')">
+          {% include 'faithlink/partials/user_attendance_table.html' with records=evening_mass table_id='eveningTable' %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Event Attendance Tab -->
+    <div class="tab-pane fade" id="event" role="tabpanel" aria-labelledby="event-tab">
+      <div class="card shadow-sm">
+        <div class="card-header bg-light fw-semibold">Event Attendance</div>
+        <div class="card-body p-3">
+          <input type="text" class="form-control mb-3" id="searchEvent" placeholder="Search Events..." onkeyup="filterTable('eventTable', 'searchEvent')">
+          <div class="table-responsive">
+            <table class="table table-bordered table-hover text-center m-0" id="eventTable">
+              <thead class="table-light">
+                <tr>
+                  <th>#</th>
+                  <th>Parishioner</th>
+                  <th>Event</th>
+                  <th>Date</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for record in event_attendance %}
+                <tr>
+                  <td>{{ forloop.counter }}</td>
+                  <td>{{ record.parishioner.user.first_name }} {{ record.parishioner.user.last_name }}</td>
+                  <td>{{ record.event.name }}</td>
+                  <td>{{ record.date|date:"F d, Y" }}</td>
+                  <td><span class="badge bg-success">{{ record.status }}</span></td>
+                </tr>
+                {% empty %}
+                <tr>
+                  <td colspan="5">No event attendance records found.</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  
+</div>
+
+<!-- Table Filter Script -->
+<script>
+  function filterTable(tableId, inputId) {
+    const input = document.getElementById(inputId);
+    const filter = input.value.toLowerCase();
+    const table = document.getElementById(tableId);
+    const trs = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+    for (let i = 0; i < trs.length; i++) {
+      let rowText = trs[i].textContent.toLowerCase();
+      trs[i].style.display = rowText.indexOf(filter) > -1 ? '' : 'none';
+    }
+  }
+</script>
+{% endblock %}

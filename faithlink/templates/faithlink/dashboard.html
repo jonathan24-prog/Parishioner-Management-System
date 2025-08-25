@@ -1,0 +1,381 @@
+{% extends 'faithlink/basemenu.html' %}
+
+{% block content %}
+<div id="app" class="container mt-5">
+
+  <!-- ================== HEADER ================== -->
+  <h2 class="mb-4" style="font-size: 2.5rem; font-weight: 700; color: #ce7659;">Welcome to FaithLink</h2>
+  <h3 class="mb-4 text-muted">Dashboard / Home</h3>
+
+  <!-- ================== QUICK STATS ================== -->
+  <h4 class="fw-bold mb-3">📊 Quick Stats</h4>
+  <div class="row g-4">
+      
+      {% if request.user.is_superuser %}
+      <!-- Total Members -->
+      <div class="col-md-6 col-lg-3">
+          <a href="{% url 'parishioners' %}" class="card-link">
+              <div class="card shadow-lg border-0 rounded-4 text-white" style="background: linear-gradient(135deg, #007bff, #0056b3); position: relative;">
+                  <div class="card-body text-center">
+                      <span class="counter bgc-orange" style="background-color: rgb(225, 73, 104); width: 25px; height: 25px; display: inline-flex; justify-content: center; align-items: center; border-radius: 50%; position: absolute; top: -10px; right: -10px; font-weight: 600; font-size: 0.7rem;">
+                          {{ non_parishioners|length }}
+                      </span>
+                      <h5 class="card-title fw-bold">Total Members</h5>
+                      <h3 class="fw-bold" v-text="totalMembers" style="font-size: 3rem;"></h3>
+                  </div>
+              </div>
+          </a>
+      </div>
+      {% endif %}
+
+      <!-- Prayer Requests -->
+      <div class="col-md-6 col-lg-3">
+          <a href="{% url 'prayer_request' %}" class="card-link">
+              <div class="card shadow-lg border-0 rounded-4 text-white" style="background: linear-gradient(135deg, #28a745, #1e7e34);">
+                  <div class="card-body text-center">
+                      <h5 class="card-title fw-bold">Prayer Requests</h5>
+                      <h3 class="fw-bold" v-text="totalRequest" style="font-size: 3rem;"></h3>
+                  </div>
+              </div>
+          </a>
+      </div>
+
+      {% if request.user.is_parishioner %}
+      <!-- My QR Code -->
+      <div class="col-md-6 col-lg-3">
+          <a href="{% url 'generate_parishioner_qr' %}" class="card-link" download>
+              <div class="card shadow-lg border-0 rounded-4 text-white" style="background: linear-gradient(135deg, #6f42c1, #4b2e83);">
+                  <div class="card-body text-center">
+                      <h5 class="card-title fw-bold">My QR Code</h5>
+                      <h3 class="fw-bold" style="font-size: 2rem;"><i class="fas fa-qrcode"></i></h3>
+                      <small>Click to download</small>
+                  </div>
+              </div>
+          </a>
+      </div>
+      {% endif %}
+
+      {% if request.user.is_superuser %}
+      <!-- Attendance Summary -->
+      <div class="col-md-6 col-lg-3">
+          <div class="card shadow-lg border-0 rounded-4 text-white" style="background: linear-gradient(135deg, #dc3545, #a71d2a);">
+              <div class="card-body text-center">
+                  <h5 class="card-title fw-bold">Attendance</h5>
+                  <h3 class="fw-bold" v-text="attendanceData.total_attendance" style="font-size: 3rem;"></h3>
+                  <small class="text-light">
+                    <template v-if="filterType === 'today'">as of today ({{ attendanceData.latest_date }})</template>
+                    <template v-else-if="filterType === 'month'">for {{ attendanceData.current_month }}</template>
+                    <template v-else-if="filterType === 'date'">for {{ selectedDate }}</template>
+                    <template v-else>as of {{ attendanceData.latest_date }}</template>
+                  </small>
+              </div>
+          </div>
+      </div>
+      {% endif %}
+  </div>
+
+  <!-- ================== CELEBRATIONS ================== -->
+  <h4 class="fw-bold mt-5 mb-3">🎉 Celebrations</h4>
+  <div class="row g-4">
+      {% if request.user.is_superuser %}
+          <!-- Birthdays -->
+          <div class="col-md-6">
+              <div class="card shadow-sm rounded-4 border-0">
+                  <div class="card-header bg-primary text-white text-center fw-bold">Upcoming Birthdays</div>
+                  <div class="card-body">
+                      <ul class="list-group list-group-flush">
+                          {% for birthday in birthdays %}
+                          <li class="list-group-item">🎂 {{ birthday.name }} - {{ birthday.date }} (turning {{ birthday.turning }})</li>
+                          {% empty %}
+                          <li class="list-group-item text-muted text-center">No upcoming birthdays.</li>
+                          {% endfor %}
+                      </ul>
+                  </div>
+              </div>
+          </div>
+
+          <!-- Anniversaries -->
+          <div class="col-md-6">
+              <div class="card shadow-sm rounded-4 border-0">
+                  <div class="card-header bg-success text-white text-center fw-bold">Upcoming Anniversaries</div>
+                  <div class="card-body">
+                      <ul class="list-group list-group-flush">
+                          {% for anniversary in anniversaries %}
+                          <li class="list-group-item">💍 {{ anniversary.name }} - {{ anniversary.date }}</li>
+                          {% empty %}
+                          <li class="list-group-item text-muted text-center">No upcoming anniversaries.</li>
+                          {% endfor %}
+                      </ul>
+                  </div>
+              </div>
+          </div>
+      {% else %}
+          <!-- Anniversaries Full Width for Parishioners -->
+          <div class="col-md-12">
+              <div class="card shadow-sm rounded-4 border-0">
+                  <div class="card-header bg-success text-white text-center fw-bold">Upcoming Anniversaries</div>
+                  <div class="card-body">
+                      <ul class="list-group list-group-flush">
+                          {% for anniversary in anniversaries %}
+                          <li class="list-group-item">💍 {{ anniversary.name }} - {{ anniversary.date }}</li>
+                          {% empty %}
+                          <li class="list-group-item text-muted text-center">No upcoming anniversaries.</li>
+                          {% endfor %}
+                      </ul>
+                  </div>
+              </div>
+          </div>
+      {% endif %}
+  </div>
+
+  <!-- ================== EVENTS ================== -->
+  <h4 class="fw-bold mt-5 mb-3">📅 Upcoming Events</h4>
+  <div class="row">
+      <div class="col-12">
+          <div class="card shadow-sm rounded-4 border-0">
+              <div class="card-header bg-warning text-dark text-center fw-bold">Upcoming Events</div>
+              <div class="card-body">
+                  {% if upcoming_events %}
+                  <ul class="list-group list-group-flush">
+                      {% for event in upcoming_events %}
+                      <li class="list-group-item">📌 <strong>{{ event.name }}</strong> - {{ event.date|date:"M d, Y h:i A" }} at {{ event.location }}</li>
+                      {% endfor %}
+                  </ul>
+                  {% else %}
+                  <p class="text-muted text-center">No upcoming events.</p>
+                  {% endif %}
+              </div>
+          </div>
+      </div>
+  </div>
+
+  <!-- ================== ATTENDANCE INSIGHTS ================== -->
+  <h4 class="fw-bold mt-5 mb-3">📈 Attendance Insights</h4>
+  
+  <!-- Filters -->
+  <div class="row mb-3">
+    <div class="col-md-6">
+      <select v-model="filterType" class="form-select" @change="onFilterChange">
+        <option value="today">Today</option>
+        <option value="month">Select a Month</option>
+        <option value="date">Select a Date</option>
+      </select>
+    </div>
+    <div class="col-md-3" v-if="filterType === 'month'">
+      <input type="month" v-model="selectedMonth" class="form-control" @change="fetchAttendanceSummary">
+    </div>
+    <div class="col-md-3" v-if="filterType === 'date'">
+      <input type="date" v-model="selectedDate" class="form-control" @change="fetchAttendanceSummary">
+    </div>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="row g-4">
+      <div class="col-md-3">
+          <div class="card shadow-sm border-0 rounded-4 text-center p-3">
+              <h6 class="text-muted">Total Attendance</h6>
+              <h3 class="fw-bold text-success" v-text="attendanceData.total_attendance"></h3>
+              <small class="text-muted">as of {{ attendanceData.latest_date }}</small>
+          </div>
+      </div>
+
+      <div class="col-md-3">
+          <div class="card shadow-sm border-0 rounded-4 text-center p-3">
+              <h6 class="text-muted">Absentees</h6>
+              <h3 class="fw-bold text-danger" v-text="attendanceData.absentees"></h3>
+              <small class="text-muted">Last updated: {{ attendanceData.latest_date }}</small>
+          </div>
+      </div>
+
+      <div class="col-md-3">
+          <div class="card shadow-sm border-0 rounded-4 text-center p-3">
+              <h6 class="text-muted">Highest Attendance</h6>
+              <h5 class="fw-bold text-primary" v-text="attendanceData.highest.service"></h5>
+              <small>{{ attendanceData.highest.date }} — {{ attendanceData.highest.count }} attendees</small>
+          </div>
+      </div>
+
+      <div class="col-md-3">
+          <div class="card shadow-sm border-0 rounded-4 text-center p-3">
+              <h6 class="text-muted">Average Attendance Rate</h6>
+              <h3 class="fw-bold text-info">{{ attendanceData.attendance_rate }}%</h3>
+              <small>This month ({{ attendanceData.current_month }})</small>
+          </div>
+      </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="row mt-4 g-4">
+      <div class="col-md-6">
+          <div class="card shadow-sm rounded-4 border-0">
+              <div class="card-header bg-info text-white fw-bold text-center">Mass Attendance Overview</div>
+              <div class="card-body">
+                  <canvas id="attendanceChart"></canvas>
+              </div>
+          </div>
+      </div>
+      <div class="col-md-6">
+          <div class="card shadow-sm rounded-4 border-0">
+              <div class="card-header bg-danger text-white fw-bold text-center">Attendance vs Absentees</div>
+              <div class="card-body">
+                  <canvas id="attendanceVsAbsentees"></canvas>
+              </div>
+          </div>
+      </div>
+  </div>
+
+  <div class="row mt-4 g-4">
+      <div class="col-md-6">
+          <div class="card shadow-sm rounded-4 border-0">
+              <div class="card-header bg-warning fw-bold text-center">Absentee Trend</div>
+              <div class="card-body">
+                  <canvas id="absenteeTrend"></canvas>
+                  <small class="d-block text-center text-muted mt-2">Showing last 6 months</small>
+              </div>
+          </div>
+      </div>
+      <div class="col-md-6">
+          <div class="card shadow-sm rounded-4 border-0">
+              <div class="card-header bg-success fw-bold text-center">Total Attendance Over Time</div>
+              <div class="card-body">
+                  <canvas id="attendanceOverTime"></canvas>
+                  <small class="d-block text-center text-muted mt-2">Weekly / Monthly Trends</small>
+              </div>
+          </div>
+      </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block script %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+new Vue({
+  el: '#app',
+  data() {
+    return {
+      totalMembers: 0,
+      totalRequest: 0,
+      filterType: "today",
+      selectedDate: "",
+      selectedMonth: "",
+      attendanceData: {
+        total_attendance: 0,
+        absentees: 0,
+        highest: { service: "", date: "", count: 0 },
+        attendance_rate: 0,
+        current_month: "",
+        latest_date: ""
+      },
+      absenteeTrend: { labels: [], values: [] },
+      attendanceOverTime: { labels: [], values: [] },
+      chartInstances: {}
+    };
+  },
+  methods: {
+    fetchTotalMembers() {
+      axios.get('/customusers/count/').then(res => this.totalMembers = res.data.count);
+    },
+    fetchTotalRequest() {
+      axios.get('/prayer-request/count/').then(res => this.totalRequest = res.data.count);
+    },
+    onFilterChange() {
+      if (this.filterType !== "month") this.selectedMonth = "";
+      if (this.filterType !== "date") this.selectedDate = "";
+      this.fetchAttendanceSummary();
+    },
+    fetchAttendanceSummary() {
+      axios.get('/attendance/summary/', {
+        params: { 
+          filter: this.filterType,
+          date: this.filterType === "date" ? this.selectedDate : "",
+          month: this.filterType === "month" ? this.selectedMonth : ""
+        }
+      }).then(res => {
+        this.attendanceData = res.data;
+        this.renderAttendanceCharts();
+      });
+    },
+    fetchAttendanceOverTime() {
+      axios.get('/attendance/over-time/', {
+        params: { month: this.selectedMonth }
+      }).then(res => {
+        this.attendanceOverTime = res.data;
+        this.renderAttendanceOverTimeChart();
+      });
+    },
+    renderAttendanceCharts() {
+      this.destroyChart("attendanceChart");
+      this.destroyChart("attendanceVsAbsentees");
+
+      this.chartInstances.attendanceChart = new Chart(document.getElementById('attendanceChart'), {
+        type: 'bar',
+        data: {
+          labels: ['Morning', 'Afternoon', 'Evening', 'Events'],
+          datasets: [{
+            label: 'Attendees',
+            data: [this.attendanceData.morning, this.attendanceData.afternoon, this.attendanceData.evening, this.attendanceData.events],
+            backgroundColor: ['#007bff', '#28a745', '#ffc107', '#dc3545']
+          }]
+        }
+      });
+
+      this.chartInstances.attendanceVsAbsentees = new Chart(document.getElementById('attendanceVsAbsentees'), {
+        type: 'doughnut',
+        data: {
+          labels: ['Attendance', 'Absentees'],
+          datasets: [{
+            data: [this.attendanceData.total_attendance, this.attendanceData.absentees],
+            backgroundColor: ['#28a745', '#dc3545']
+          }]
+        }
+      });
+    },
+    renderAbsenteeChart() {
+      this.destroyChart("absenteeTrend");
+      this.chartInstances.absenteeTrend = new Chart(document.getElementById('absenteeTrend'), {
+        type: 'line',
+        data: {
+          labels: this.absenteeTrend.labels,
+          datasets: [{
+            label: 'Absentees',
+            data: this.absenteeTrend.values,
+            borderColor: '#dc3545',
+            fill: false,
+            tension: 0.1
+          }]
+        }
+      });
+    },
+    renderAttendanceOverTimeChart() {
+      this.destroyChart("attendanceOverTime");
+      this.chartInstances.attendanceOverTime = new Chart(document.getElementById('attendanceOverTime'), {
+        type: 'line',
+        data: {
+          labels: this.attendanceOverTime.labels,
+          datasets: [{
+            label: 'Total Attendance',
+            data: this.attendanceOverTime.values,
+            borderColor: '#28a745',
+            fill: false,
+            tension: 0.3
+          }]
+        }
+      });
+    },
+    destroyChart(chartId) {
+      if (this.chartInstances[chartId]) {
+        this.chartInstances[chartId].destroy();
+      }
+    }
+  },
+  created() {
+    this.fetchTotalMembers();
+    this.fetchTotalRequest();
+    this.fetchAttendanceSummary();
+    this.fetchAttendanceOverTime();
+  }
+});
+</script>
+{% endblock %}

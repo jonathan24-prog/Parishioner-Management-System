@@ -1,0 +1,99 @@
+{% extends 'faithlink/base.html' %}
+{% block content %}
+
+<div class="container d-flex justify-content-center align-items-center" style="min-height: 100vh;">
+    <div class="card shadow-lg" style="max-width: 400px; width: 100%; border-radius: 10px;">
+        <div class="p-4">
+            <h2 class="text-center fw-bold mb-4" style="font-size: 2rem;">Sign up to FaithLink</h2>
+
+            <form method="post" novalidate>
+                {% csrf_token %}
+
+                <!-- Non-field errors (e.g., privacy checkbox) -->
+                {% if form.non_field_errors %}
+                <div class="alert alert-danger">
+                    {% for error in form.non_field_errors %}
+                        <p class="mb-0">{{ error }}</p>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- Username -->
+                <div class="mb-3">
+                    <label for="{{ form.username.id_for_label }}" class="form-label fw-bold">Username</label>
+                    <input type="text" name="username" class="form-control" id="{{ form.username.id_for_label }}" value="{{ form.username.value|default:'' }}">
+                    <div class="text-danger">{{ form.username.errors }}</div>
+                </div>
+
+                <!-- First Name -->
+                <div class="mb-3">
+                    <label for="{{ form.first_name.id_for_label }}" class="form-label fw-bold">First Name</label>
+                    <input type="text" name="first_name" class="form-control" id="{{ form.first_name.id_for_label }}" value="{{ form.first_name.value|default:'' }}">
+                    <div class="text-danger">{{ form.first_name.errors }}</div>
+                </div>
+
+                <!-- Last Name -->
+                <div class="mb-3">
+                    <label for="{{ form.last_name.id_for_label }}" class="form-label fw-bold">Last Name</label>
+                    <input type="text" name="last_name" class="form-control" id="{{ form.last_name.id_for_label }}" value="{{ form.last_name.value|default:'' }}">
+                    <div class="text-danger">{{ form.last_name.errors }}</div>
+                </div>
+
+                <!-- Birthdate -->
+                <div class="mb-3">
+                    <label for="{{ form.birthdate.id_for_label }}" class="form-label fw-bold">Birthdate</label>
+                    <input type="date" name="birthdate" class="form-control" id="{{ form.birthdate.id_for_label }}" value="{{ form.birthdate.value|default:'' }}">
+                    <div class="text-danger">{{ form.birthdate.errors }}</div>
+                </div>
+
+                <!-- Address -->
+                <div class="mb-3">
+                    <label for="{{ form.address.id_for_label }}" class="form-label fw-bold">Address</label>
+                    <input type="text" name="address" class="form-control" id="{{ form.address.id_for_label }}" value="{{ form.address.value|default:'' }}">
+                    <div class="text-danger">{{ form.address.errors }}</div>
+                </div>
+
+                <!-- Phone Number -->
+                <div class="mb-3">
+                    <label for="{{ form.phone_number.id_for_label }}" class="form-label fw-bold">Cell. no.</label>
+                    <input type="text" name="phone_number" class="form-control" id="{{ form.phone_number.id_for_label }}" value="{{ form.phone_number.value|default:'' }}">
+                    <div class="text-danger">{{ form.phone_number.errors }}</div>
+                </div>
+
+                <!-- Password -->
+                <div class="mb-3">
+                    <label for="{{ form.password1.id_for_label }}" class="form-label fw-bold">Password</label>
+                    <input type="password" name="password1" class="form-control" id="{{ form.password1.id_for_label }}">
+                    <div class="text-danger">{{ form.password1.errors }}</div>
+                </div>
+
+                <!-- Confirm Password -->
+                <div class="mb-3">
+                    <label for="{{ form.password2.id_for_label }}" class="form-label fw-bold">Confirm Password</label>
+                    <input type="password" name="password2" class="form-control" id="{{ form.password2.id_for_label }}">
+                    <div class="text-danger">{{ form.password2.errors }}</div>
+                </div>
+
+                <!-- Privacy Policy Checkbox -->
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" name="accept_privacy" id="acceptPrivacy" {% if request.POST.accept_privacy %}checked{% endif %} required>
+                    <label class="form-check-label fw-semibold" for="acceptPrivacy">
+                        I accept the <a href="{% url 'privacy_policy' %}" target="_blank">Privacy Policy</a>.
+                    </label>
+                </div>
+
+                <button type="submit" class="btn w-100" style="background-color: #C66C4E; color: white;">Submit</button>
+            </form>
+
+            <p class="text-center mt-3">
+                <a href="{% url 'login' %}" class="text-decoration-none">Already have an account? Login</a>
+            </p>
+
+            <div class="text-center mt-3">
+                <a href="{% url 'LandingPage' %}" class="btn btn-secondary">← Back to Home</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

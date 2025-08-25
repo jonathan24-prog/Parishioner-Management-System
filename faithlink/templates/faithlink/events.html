@@ -1,0 +1,260 @@
+{% extends 'faithlink/basemenu.html' %}
+
+{% block content %}
+<div id="event-app" class="container py-4">
+
+  <!-- Loading Spinner -->
+  <div class="semipolar-spinner" v-show="isLoading">
+    <div class="ring"></div><div class="ring"></div><div class="ring"></div><div class="ring"></div><div class="ring"></div>
+    <p class="spinner-text">Loading events...</p>
+  </div>
+
+  <!-- Add Event Button -->
+  <el-button type="success" icon="el-icon-plus" class="mb-3" @click="dialogVisible = true">Add Event</el-button>
+
+  <h2 class="section-title">List of Events</h2>
+
+  <!-- Add Event Modal -->
+  <el-dialog title="Create Event" :visible.sync="dialogVisible" width="30%">
+    <el-form :model="form" :rules="rules" ref="createForm" label-width="100px" @submit.native.prevent>
+      <el-form-item label="Event Name" prop="name">
+        <el-input v-model="form.name" placeholder="Enter event name"></el-input>
+      </el-form-item>
+      <el-form-item label="Date" prop="date">
+        <el-date-picker v-model="form.date" type="datetime" placeholder="Select date & time" style="width: 100%;"></el-date-picker>
+      </el-form-item>
+      <el-form-item label="Location" prop="location">
+        <el-input v-model="form.location" placeholder="Enter location"></el-input>
+      </el-form-item>
+    </el-form>
+    <span slot="footer" class="dialog-footer">
+      <el-button @click="dialogVisible = false">Cancel</el-button>
+      <el-button type="success" @click="createEvent">Create</el-button>
+    </span>
+  </el-dialog>
+
+  <!-- Edit Event Modal -->
+  <el-dialog title="Edit Event" :visible.sync="editDialogVisible" width="30%">
+    <el-form :model="editForm" :rules="rules" ref="editFormRef" label-width="100px" @submit.native.prevent>
+      <el-form-item label="Event Name" prop="name">
+        <el-input v-model="editForm.name" placeholder="Enter event name"></el-input>
+      </el-form-item>
+      <el-form-item label="Date" prop="date">
+        <el-date-picker v-model="editForm.date" type="datetime" placeholder="Select date & time" style="width: 100%;"></el-date-picker>
+      </el-form-item>
+      <el-form-item label="Location" prop="location">
+        <el-input v-model="editForm.location" placeholder="Enter location"></el-input>
+      </el-form-item>
+    </el-form>
+    <span slot="footer" class="dialog-footer">
+      <el-button @click="editDialogVisible = false">Cancel</el-button>
+      <el-button type="primary" @click="updateEvent">Update</el-button>
+    </span>
+  </el-dialog>
+
+  <!-- Events Table -->
+  <el-card class="mt-4">
+    <v-client-table :columns="columns" :data="events">
+      <template slot="action" slot-scope="props">
+        <el-button type="primary" size="small" icon="el-icon-edit" @click="openEditModal(props.row)">Edit</el-button>
+        <el-button type="danger" size="small" icon="el-icon-delete" @click="deleteEvent(props.row.id)">Delete</el-button>
+      </template>
+    </v-client-table>
+  </el-card>
+
+</div>
+{% endblock %}
+
+{% block script %}
+<script src="https://unpkg.com/element-ui/lib/index.js"></script>
+<script src="https://unpkg.com/element-ui/lib/umd/locale/en.js"></script>
+
+<script>
+  ELEMENT.locale(ELEMENT.lang.en);
+  Vue.use(VueTables.ClientTable);
+
+  new Vue({
+    el: '#event-app',
+    data() {
+      return {
+        isLoading: true,
+        dialogVisible: false,
+        editDialogVisible: false,
+        columns: ["name", "date", "location", "action"],
+        events: [],
+        form: {
+          name: '',
+          date: '',
+          location: ''
+        },
+        editForm: {
+          id: null,
+          name: '',
+          date: '',
+          location: ''
+        },
+        rules: {
+          name: [{ required: true, message: 'Event name is required', trigger: 'blur' }],
+          date: [{ type: 'date', required: true, message: 'Please pick a date and time', trigger: 'change' }],
+          location: [{ required: true, message: 'Location is required', trigger: 'blur' }]
+        }
+      };
+    },
+    methods: {
+      getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+          const cookies = document.cookie.split(';');
+          for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+              cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+              break;
+            }
+          }
+        }
+        return cookieValue;
+      },
+      fetchEvents() {
+        this.isLoading = true;
+        axios.get('/api/events/')
+          .then(res => {
+            const now = new Date();
+            this.events = res.data.filter(event => new Date(event.date) > now);
+            this.isLoading = false;
+          })
+          .catch(() => {
+            this.isLoading = false;
+          });
+      },
+      createEvent() {
+        this.$refs.createForm.validate(valid => {
+          if (!valid) return;
+          axios.post('/api/events/', this.form, {
+            headers: { 'X-CSRFToken': this.getCookie('csrftoken') }
+          }).then(() => {
+            this.$notify({ title: 'Success', message: 'Event added!', type: 'success' });
+            this.form = { name: '', date: '', location: '' };
+            this.dialogVisible = false;
+            this.fetchEvents();
+          }).catch(err => {
+            console.error(err);
+            this.$notify({ title: 'Error', message: 'Failed to add event.', type: 'error' });
+          });
+        });
+      },
+      openEditModal(event) {
+        this.editForm = { ...event };
+        this.editDialogVisible = true;
+      },
+      updateEvent() {
+        this.$refs.editFormRef.validate(valid => {
+          if (!valid) return;
+          axios.put(`/api/events/${this.editForm.id}/`, this.editForm, {
+            headers: { 'X-CSRFToken': this.getCookie('csrftoken') }
+          }).then(() => {
+            this.$notify({ title: 'Updated', message: 'Event updated successfully!', type: 'success' });
+            this.editDialogVisible = false;
+            this.fetchEvents();
+          }).catch(err => {
+            console.error(err);
+            this.$notify({ title: 'Error', message: 'Failed to update event.', type: 'error' });
+          });
+        });
+      },
+      deleteEvent(id) {
+        axios.delete(`/api/events/${id}/`, {
+          headers: { 'X-CSRFToken': this.getCookie('csrftoken') }
+        }).then(() => {
+          this.fetchEvents();
+        });
+      }
+    },
+    created() {
+      this.fetchEvents();
+    }
+  });
+</script>
+{% endblock %}
+
+<style>
+.section-title {
+  font-size: 2.2rem;
+  font-weight: 600;
+  color: #409EFF;
+  margin: 20px 0;
+}
+.semipolar-spinner, .semipolar-spinner * {
+  box-sizing: border-box;
+}
+.semipolar-spinner {
+  position: fixed;
+  z-index: 999;
+  height: 5em;
+  width: 5em;
+  overflow: visible;
+  margin: auto;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+}
+.semipolar-spinner .ring {
+  border-radius: 50%;
+  position: absolute;
+  border: calc(65px * 0.05) solid transparent;
+  border-top-color: #409EFF;
+  border-left-color: #409EFF;
+  animation: semipolar-spinner-animation 2s infinite;
+}
+.semipolar-spinner .ring:nth-child(1) {
+  height: calc(65px - 65px * 0.2 * 0);
+  width: calc(65px - 65px * 0.2 * 0);
+  top: calc(65px * 0.1 * 0);
+  left: calc(65px * 0.1 * 0);
+  animation-delay: calc(2000ms * 0.1 * 4);
+  z-index: 5;
+}
+.semipolar-spinner .ring:nth-child(2) {
+  height: calc(65px - 65px * 0.2 * 1);
+  width: calc(65px - 65px * 0.2 * 1);
+  top: calc(65px * 0.1 * 1);
+  left: calc(65px * 0.1 * 1);
+  animation-delay: calc(2000ms * 0.1 * 3);
+  z-index: 4;
+}
+.semipolar-spinner .ring:nth-child(3) {
+  height: calc(65px - 65px * 0.2 * 2);
+  width: calc(65px - 65px * 0.2 * 2);
+  top: calc(65px * 0.1 * 2);
+  left: calc(65px * 0.1 * 2);
+  animation-delay: calc(2000ms * 0.1 * 2);
+  z-index: 3;
+}
+.semipolar-spinner .ring:nth-child(4) {
+  height: calc(65px - 65px * 0.2 * 3);
+  width: calc(65px - 65px * 0.2 * 3);
+  top: calc(65px * 0.1 * 3);
+  left: calc(65px * 0.1 * 3);
+  animation-delay: calc(2000ms * 0.1 * 1);
+  z-index: 2;
+}
+.semipolar-spinner .ring:nth-child(5) {
+  height: calc(65px - 65px * 0.2 * 4);
+  width: calc(65px - 65px * 0.2 * 4);
+  top: calc(65px * 0.1 * 4);
+  left: calc(65px * 0.1 * 4);
+  animation-delay: calc(2000ms * 0.1 * 0);
+  z-index: 1;
+}
+@keyframes semipolar-spinner-animation {
+  50% {
+    transform: rotate(360deg) scale(0.7);
+  }
+}
+.spinner-text {
+  text-align: center;
+  margin-top: 5em;
+  color: #666;
+}
+</style>

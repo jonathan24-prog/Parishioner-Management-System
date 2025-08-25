@@ -1,0 +1,312 @@
+{% extends 'faithlink/basemenu.html' %}
+
+{% block content %}
+<div id="donation-app" class="container py-4">
+  <h2 style="font-size: 2.5rem; font-weight: 700; color: #ce7659;">Financial Management</h2>
+  <el-tabs type="card">
+    
+    <!-- Donations Tab -->
+    <el-tab-pane label="Donations">
+      <div class="flex justify-between items-center mb-3">
+        <el-button type="success" icon="el-icon-plus" @click="openAddDialog">Record Donation</el-button>
+      </div>
+
+      <el-card class="mb-4">
+        <v-client-table :columns="columns" :data="donations" class="w-full">
+          <template slot="action" slot-scope="props">
+            <el-button size="small" type="success" 
+              v-if="!props.row.received"
+              @click="markAsReceived(props.row.id)">Mark as Received</el-button>
+            <el-tag type="success" v-else>Received</el-tag>
+
+            <el-button size="small" type="warning" @click="editDonation(props.row)">Edit</el-button>
+            <!-- <el-button size="small" type="danger" @click="deleteDonation(props.row.id)">Delete</el-button> -->
+          </template>
+        </v-client-table>
+      </el-card>
+    </el-tab-pane>
+
+    <!-- Fundraising Campaigns Tab -->
+    <el-tab-pane label="Fundraising Campaigns">
+      <div class="flex justify-between items-center mb-3">
+        <el-button type="primary" icon="el-icon-plus" @click="openCampaignDialog">New Campaign</el-button>
+      </div>
+
+      <el-card>
+        <v-client-table :columns="campaignColumns" :data="campaigns">
+          <template slot="action" slot-scope="props">
+            <el-button size="small" type="primary" @click="editCampaign(props.row)">Edit</el-button>
+            <el-button size="small" type="danger" @click="deleteCampaign(props.row.id)">Delete</el-button>
+          </template>
+        </v-client-table>
+      </el-card>
+    </el-tab-pane>
+  </el-tabs>
+
+  <!-- Donation Modal -->
+  <el-dialog :title="editing ? 'Edit Donation' : 'Record Donation'" :visible.sync="dialogVisible" width="40%">
+    <el-form @submit.native.prevent="saveDonation" label-position="top">
+
+      <el-form-item label="Donation Type">
+        <el-select v-model="form.type" placeholder="Select type">
+          <el-option label="Money" value="money"></el-option>
+          <el-option label="Item" value="item"></el-option>
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="Donor">
+        <el-select v-model="form.donor" filterable placeholder="Select a donor">
+          <el-option 
+            v-for="user in users" 
+            :key="user.id" 
+            :label="`${user.first_name} ${user.last_name}`" 
+            :value="user.id">
+          </el-option>
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="Amount" v-if="form.type === 'money'">
+        <el-input v-model.number="form.amount" placeholder="Enter amount"></el-input>
+      </el-form-item>
+
+      <el-form-item label="Payment Method" v-if="form.type === 'money'">
+        <el-input v-model="form.payment_method" placeholder="e.g., Cash, GCash"></el-input>
+      </el-form-item>
+
+      <el-form-item label="Item Name" v-if="form.type === 'item'">
+        <el-input v-model="form.item_name" placeholder="e.g., Projector, Chair"></el-input>
+      </el-form-item>
+
+      <el-form-item label="Quantity" v-if="form.type === 'item'">
+        <el-input-number v-model="form.quantity" :min="1"></el-input-number>
+      </el-form-item>
+
+      <el-form-item label="Item Condition" v-if="form.type === 'item'">
+        <el-input v-model="form.item_condition" placeholder="e.g., New, Slightly Used"></el-input>
+      </el-form-item>
+
+      <el-form-item label="Item Photo" v-if="form.type === 'item'">
+        <input type="file" @change="handlePhotoUpload" />
+      </el-form-item>
+
+      <el-form-item label="Description">
+        <el-input type="textarea" v-model="form.description" placeholder="Describe the donation..."></el-input>
+      </el-form-item>
+
+      <el-form-item label="Date">
+        <el-date-picker v-model="form.date" type="date" placeholder="Select date" value-format="yyyy-MM-dd"></el-date-picker>
+      </el-form-item>
+
+      <el-form-item label="Anonymous?">
+        <el-switch v-model="form.anonymous"></el-switch>
+      </el-form-item>
+
+      <el-form-item label="Request Pickup?">
+        <el-switch v-model="form.pickup_requested"></el-switch>
+      </el-form-item>
+
+    </el-form>
+
+    <span slot="footer" class="dialog-footer">
+      <el-button @click="dialogVisible = false">Cancel</el-button>
+      <el-button type="success" @click="saveDonation" v-text="editing ? 'Update' : 'Save'"></el-button>
+    </span>
+  </el-dialog>
+
+  <!-- Campaign Modal -->
+  <el-dialog :title="campaignEditing ? 'Edit Campaign' : 'New Campaign'" :visible.sync="campaignDialogVisible" width="40%">
+    <el-form @submit.native.prevent="saveCampaign" label-position="top">
+      <el-form-item label="Title">
+        <el-input v-model="campaignForm.title" placeholder="Campaign title (e.g., Building Fund)"></el-input>
+      </el-form-item>
+      <el-form-item label="Goal Amount">
+        <el-input v-model.number="campaignForm.goal_amount" placeholder="e.g. 50000"></el-input>
+      </el-form-item>
+      <el-form-item label="Description">
+        <el-input type="textarea" v-model="campaignForm.description" placeholder="Describe the purpose of this campaign."></el-input>
+      </el-form-item>
+    </el-form>
+    <span slot="footer" class="dialog-footer">
+      <el-button @click="campaignDialogVisible = false">Cancel</el-button>
+      <el-button type="primary" @click="saveCampaign" v-text="campaignEditing ? 'Update' : 'Save'"></el-button>
+    </span>
+  </el-dialog>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+  Vue.use(VueTables.ClientTable);
+
+  new Vue({
+    el: '#donation-app',
+    data() {
+      return {
+        columns: ['donor_name', 'type', 'amount', 'item_name', 'description', 'anonymous', 'pickup_requested', 'date', 'action'],
+        campaignColumns: ['title', 'goal_amount', 'raised_amount', 'description', 'action'],
+        donations: [],
+        users: [],
+        campaigns: [],
+        dialogVisible: false,
+        campaignDialogVisible: false,
+        editing: false,
+        campaignEditing: false,
+        form: {
+          id: null,
+          type: 'money',
+          donor: '',
+          amount: '',
+          payment_method: '',
+          item_name: '',
+          quantity: '',
+          item_condition: '',
+          photo: null,
+          description: '',
+          date: '',
+          anonymous: false,
+          pickup_requested: false
+        },
+        campaignForm: {
+          id: null,
+          title: '',
+          goal_amount: '',
+          description: ''
+        }
+      };
+    },
+    methods: {
+      getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+          const cookies = document.cookie.split(';');
+          for (let cookie of cookies) {
+            const trimmed = cookie.trim();
+            if (trimmed.substring(0, name.length + 1) === (name + '=')) {
+              cookieValue = decodeURIComponent(trimmed.substring(name.length + 1));
+              break;
+            }
+          }
+        }
+        return cookieValue;
+      },
+      fetchDonations() {
+        axios.get('/api/donations/').then(res => {
+          this.donations = res.data.map(donation => ({
+            ...donation,
+            donor_name: donation.anonymous ? 'Anonymous' : donation.donor_name,
+            anonymous: donation.anonymous ? 'Yes' : 'No',
+            pickup_requested: donation.pickup_requested ? 'Requested' : 'No'
+          }));
+        });
+      },
+      fetchUsers() {
+        axios.get('/api/parishioners/').then(res => this.users = res.data);
+      },
+      fetchCampaigns() {
+        axios.get('/api/fundraising-campaigns/').then(res => this.campaigns = res.data);
+      },
+      openAddDialog() {
+        this.editing = false;
+        this.form = {
+          id: null, type: 'money', donor: '',
+          amount: '', payment_method: '', item_name: '',
+          quantity: '', item_condition: '', photo: null,
+          description: '', date: '', anonymous: false,
+          pickup_requested: false
+        };
+        this.dialogVisible = true;
+      },
+      editDonation(donation) {
+        this.editing = true;
+        this.form = {
+          id: donation.id,
+          type: donation.type,
+          donor: donation.donor,
+          amount: donation.amount,
+          payment_method: donation.payment_method,
+          item_name: donation.item_name,
+          quantity: donation.quantity,
+          item_condition: donation.item_condition,
+          photo: null,
+          description: donation.description,
+          date: donation.date,
+          anonymous: donation.anonymous === 'Yes',
+          pickup_requested: donation.pickup_requested === 'Requested'
+        };
+        this.dialogVisible = true;
+      },
+      handlePhotoUpload(event) {
+        this.form.photo = event.target.files[0];
+      },
+      saveDonation() {
+        const url = this.editing ? `/api/donations/${this.form.id}/` : '/api/donations/';
+        const method = this.editing ? 'put' : 'post';
+
+        let formData = new FormData();
+        for (let key in this.form) {
+          if (this.form[key] !== null && this.form[key] !== '') {
+            formData.append(key, this.form[key]);
+          }
+        }
+
+        axios({
+          method,
+          url,
+          data: formData,
+          headers: {
+            'X-CSRFToken': this.getCookie('csrftoken'),
+            'Content-Type': 'multipart/form-data'
+          }
+        }).then(() => {
+          this.dialogVisible = false;
+          this.fetchDonations();
+        }).catch(err => console.error(err.response.data));
+      },
+      markAsReceived(id) {
+        axios.patch(`/api/donations/${id}/`, { received: true }, {
+          headers: { 'X-CSRFToken': this.getCookie('csrftoken') }
+        }).then(() => this.fetchDonations());
+      },
+      deleteDonation(id) {
+        axios.delete(`/api/donations/${id}/`, {
+          headers: { 'X-CSRFToken': this.getCookie('csrftoken') }
+        }).then(() => this.fetchDonations());
+      },
+      openCampaignDialog() {
+        this.campaignEditing = false;
+        this.campaignForm = { id: null, title: '', goal_amount: '', description: '' };
+        this.campaignDialogVisible = true;
+      },
+      editCampaign(campaign) {
+        this.campaignEditing = true;
+        this.campaignForm = { ...campaign };
+        this.campaignDialogVisible = true;
+      },
+      saveCampaign() {
+        const url = this.campaignEditing ? `/api/fundraising-campaigns/${this.campaignForm.id}/` : '/api/fundraising-campaigns/';
+        const method = this.campaignEditing ? 'put' : 'post';
+
+        axios({
+          method,
+          url,
+          data: this.campaignForm,
+          headers: { 'X-CSRFToken': this.getCookie('csrftoken') }
+        }).then(() => {
+          this.campaignDialogVisible = false;
+          this.fetchCampaigns();
+        });
+      },
+      deleteCampaign(id) {
+        axios.delete(`/api/fundraising-campaigns/${id}/`, {
+          headers: { 'X-CSRFToken': this.getCookie('csrftoken') }
+        }).then(() => this.fetchCampaigns());
+      }
+    },
+    created() {
+      this.fetchDonations();
+      this.fetchUsers();
+      this.fetchCampaigns();
+    }
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,227 @@
+{% extends 'faithlink/basemenu.html' %}
+
+{% block content %}
+<div id="user-donation-app" class="container py-5">
+  <h2 class="mb-4 text-center" style="font-size: 2.2rem; color: #ce7659;">Make a Donation</h2>
+
+  <el-row :gutter="20">
+    <!-- Donation Form -->
+    <el-col :md="12" :xs="24">
+      <el-card class="shadow-lg p-4 rounded-2xl">
+        <el-form @submit.native.prevent="submitDonation" label-position="top" :model="form">
+
+          <el-form-item label="Donation Type">
+            <el-select v-model="form.type" placeholder="Select type">
+              <el-option label="Money" value="money"></el-option>
+              <el-option label="Item" value="item"></el-option>
+            </el-select>
+          </el-form-item>
+
+          <el-form-item label="Amount (₱)" v-if="form.type === 'money'">
+            <el-input
+              v-model.number="form.amount"
+              placeholder="Enter amount"
+              prefix-icon="el-icon-money"
+            ></el-input>
+          </el-form-item>
+
+          <el-form-item label="Payment Method" v-if="form.type === 'money'">
+            <el-input
+              v-model="form.payment_method"
+              placeholder="e.g., Cash, GCash"
+            ></el-input>
+          </el-form-item>
+
+          <el-form-item label="Item Name" v-if="form.type === 'item'">
+            <el-input v-model="form.item_name" placeholder="e.g., Laptop, Speaker"></el-input>
+          </el-form-item>
+
+          <el-form-item label="Quantity" v-if="form.type === 'item'">
+            <el-input-number v-model="form.quantity" :min="1"></el-input-number>
+          </el-form-item>
+
+          <el-form-item label="Condition" v-if="form.type === 'item'">
+            <el-input v-model="form.item_condition" placeholder="e.g., New, Used"></el-input>
+          </el-form-item>
+
+          <el-form-item label="Photo" v-if="form.type === 'item'">
+            <input type="file" @change="handlePhotoUpload" />
+          </el-form-item>
+
+          <el-form-item label="Description">
+            <el-input
+              type="textarea"
+              v-model="form.description"
+              placeholder="Describe item or purpose of donation"
+              autosize
+            ></el-input>
+          </el-form-item>
+
+          <el-form-item label="Date">
+            <el-date-picker
+              v-model="form.date"
+              type="date"
+              placeholder="Donation date"
+              value-format="yyyy-MM-dd"
+              style="width: 100%;"
+            ></el-date-picker>
+          </el-form-item>
+
+          <el-form-item label="Anonymous?">
+            <el-switch v-model="form.anonymous"></el-switch>
+          </el-form-item>
+
+          <el-form-item label="Request Pickup?">
+            <el-switch v-model="form.pickup_requested"></el-switch>
+          </el-form-item>
+
+          <el-form-item>
+            <el-button type="success" icon="el-icon-check" @click="submitDonation">Submit Donation</el-button>
+          </el-form-item>
+        </el-form>
+      </el-card>
+    </el-col>
+
+    <!-- Donation Table -->
+    <el-col :md="12" :xs="24">
+      <el-card class="shadow-lg rounded-2xl">
+        <h3 class="mb-3" style="font-size: 1.5rem; color: #333;">Your Donations</h3>
+
+        <el-table
+          v-loading="loading"
+          :data="donations"
+          style="width: 100%;"
+          empty-text="No donations yet."
+          size="small"
+          border
+        >
+          <el-table-column prop="type" label="Type" width="90"></el-table-column>
+          <el-table-column prop="amount" label="Amount (₱)" width="110">
+            <template #default="scope">
+              <span v-if="scope.row.amount" v-text="'₱' + parseFloat(scope.row.amount).toFixed(2)"></span>
+              <span v-else>—</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="item_name" label="Item"></el-table-column>
+          <el-table-column prop="description" label="Description"></el-table-column>
+          <el-table-column prop="anonymous" label="Anonymous" width="90">
+            <template #default="scope">
+              <span v-if="scope.row.anonymous">Yes</span>
+              <span v-else>No</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="pickup_requested" label="Pickup" width="90">
+            <template #default="scope">
+              <span v-text="scope.row.pickup_requested ? 'Requested' : 'No'"></span>
+            </template>
+          </el-table-column>
+          <el-table-column label="Receipt" width="120">
+            <template #default="scope">
+              <el-button
+                v-if="scope.row.received"
+                size="mini"
+                type="primary"
+                @click="viewReceipt(scope.row.id)">
+                View
+              </el-button>
+              <span v-else>—</span>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-card>
+    </el-col>
+  </el-row>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+new Vue({
+  el: '#user-donation-app',
+  data() {
+    return {
+      form: {
+        type: 'money',
+        amount: '',
+        payment_method: '',
+        item_name: '',
+        quantity: '',
+        item_condition: '',
+        photo: null,
+        description: '',
+        date: '',
+        anonymous: false,
+        pickup_requested: false
+      },
+      donations: [],
+      loading: false
+    };
+  },
+  mounted() {
+    this.fetchDonations();
+  },
+  methods: {
+    getCookie(name) {
+      let cookieValue = null;
+      if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let cookie of cookies) {
+          const trimmed = cookie.trim();
+          if (trimmed.substring(0, name.length + 1) === (name + '=')) {
+            cookieValue = decodeURIComponent(trimmed.substring(name.length + 1));
+            break;
+          }
+        }
+      }
+      return cookieValue;
+    },
+    fetchDonations() {
+      this.loading = true;
+      axios.get('/donations/user/')
+        .then(response => {
+          this.donations = response.data;
+        })
+        .catch(() => {
+          this.$message.error("Failed to load donations.");
+        })
+        .finally(() => {
+          this.loading = false;
+        });
+    },
+    handlePhotoUpload(event) {
+      this.form.photo = event.target.files[0];
+    },
+    submitDonation() {
+      const formData = new FormData();
+      for (let key in this.form) {
+        if (this.form[key] !== null && this.form[key] !== '') {
+          formData.append(key, this.form[key]);
+        }
+      }
+      axios.post('/api/donations/', formData, {
+        headers: {
+          'X-CSRFToken': this.getCookie('csrftoken'),
+          'Content-Type': 'multipart/form-data'
+        }
+      })
+      .then(() => {
+        this.$message.success("Donation submitted successfully!");
+        this.form = {
+          type: 'money', amount: '', payment_method: '',
+          item_name: '', quantity: '', item_condition: '',
+          photo: null, description: '', date: '',
+          anonymous: false, pickup_requested: false
+        };
+        this.fetchDonations();
+      })
+      .catch(() => {
+        this.$message.error("There was an error submitting your donation.");
+      });
+    },
+    viewReceipt(id) {
+      window.open(`/donations/receipt/${id}/`, '_blank');
+    }
+  }
+});
+</script>
+{% endblock %}

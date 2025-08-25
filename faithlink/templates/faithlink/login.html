@@ -1,0 +1,41 @@
+{% extends 'faithlink/base.html' %}
+{% block content %}
+
+<div class="container d-flex justify-content-center align-items-center" style="min-height: 100vh;">
+    <div class="card p-4 shadow-lg" style="max-width: 400px; width: 100%; border-radius: 10px;">
+        <h2 class="text-center fw-bold" style="font-weight: 600; font-size: 2rem; margin: 20px;">Log in to FaithLink</h2>
+
+        {% if form.errors %}
+        <div class="alert alert-danger">
+            Incorrect username or password. Please try again.
+        </div>
+        {% endif %}
+
+        <form method="post">
+            {% csrf_token %}
+
+            <div class="mb-3">
+                <label for="{{ form.username.id_for_label }}" class="form-label fw-bold">Username</label>
+                <input type="text" name="username" class="form-control" id="{{ form.username.id_for_label }}">
+            </div>
+
+            <div class="mb-3">
+                <label for="{{ form.password.id_for_label }}" class="form-label fw-bold">Password</label>
+                <input type="password" name="password" class="form-control" id="{{ form.password.id_for_label }}">
+            </div>
+
+            <button type="submit" class="btn w-100" style="background-color: #C66C4E; color: white; border: none;">Log in</button>
+        </form>
+
+        <p class="text-center mt-3">
+            <a href="{% url 'signup' %}" class="text-decoration-none">Don't have an account? Sign Up</a>
+        </p>
+
+        <!-- Back to Home Button -->
+        <div class="text-center mt-3">
+            <a href="{% url 'LandingPage' %}" class="btn btn-secondary">← Back to Home</a>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

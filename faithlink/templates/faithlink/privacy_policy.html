@@ -1,0 +1,51 @@
+{% extends 'faithlink/base.html' %}
+{% block content %}
+
+<div class="container my-5" style="max-width: 800px;">
+    <h2 class="fw-bold mb-4 text-center">Privacy Policy</h2>
+
+    <p>At <strong>FaithLink Parish Management System</strong>, we value and respect your privacy. This policy outlines how we collect, use, protect, and share your personal information.</p>
+
+    <h4 class="fw-bold mt-4">1. Information We Collect</h4>
+    <ul>
+        <li>Personal information (e.g., name, contact number, address) for parishioner registration.</li>
+        <li>Sacramental records such as baptism, confirmation, and marriage data.</li>
+        <li>Attendance, contributions, and prayer requests for parish management purposes.</li>
+        <li>Login and activity logs to ensure system integrity and accountability.</li>
+    </ul>
+
+    <h4 class="fw-bold mt-4">2. How We Use Your Information</h4>
+    <ul>
+        <li>To manage parish records and administer sacraments.</li>
+        <li>To communicate with you regarding parish events, announcements, and updates.</li>
+        <li>To generate parish reports for internal use only.</li>
+        <li>To enhance system security and improve user experience.</li>
+    </ul>
+
+    <h4 class="fw-bold mt-4">3. Data Protection</h4>
+    <p>We implement strong security measures to protect your personal data against unauthorized access, alteration, or disclosure. Access to your data is strictly limited to authorized parish personnel.</p>
+
+    <h4 class="fw-bold mt-4">4. Sharing of Information</h4>
+    <p>Your personal information will not be sold, traded, or shared with third parties without your consent, except as required by law or parish regulations.</p>
+
+    <h4 class="fw-bold mt-4">5. Your Rights</h4>
+    <ul>
+        <li>You may request to view, update, or correct your personal information.</li>
+        <li>You may request deletion of your data subject to parish policies and sacramental record-keeping obligations.</li>
+    </ul>
+
+    <h4 class="fw-bold mt-4">6. Changes to This Policy</h4>
+    <p>We may update this Privacy Policy from time to time. All changes will be posted on this page with the updated effective date.</p>
+
+    <h4 class="fw-bold mt-4">7. Contact Us</h4>
+    <p>If you have questions or concerns about this policy, please contact the parish office or system administrator at <a href="mailto:support@faithlink.org">support@faithlink.org</a>.</p>
+
+    <p class="mt-5 text-muted text-end">Effective Date: July 1, 2025</p>
+
+    <!-- ✅ Back Button -->
+    <div class="text-center mt-5">
+        <a href="{% url 'signup' %}" class="btn btn-secondary">← Back</a>
+    </div>
+</div>
+
+{% endblock %}

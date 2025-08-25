@@ -1,0 +1,254 @@
+{% extends 'faithlink/basemenu.html' %}
+
+{% block content %}
+<div id="app" style="padding: 30px; max-width: 1200px; margin: auto; font-family: 'Inter', sans-serif;">
+  {% verbatim %}
+  <!-- Header -->
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+    <h1 style="font-weight: 800; font-size: 2.4rem; color: #ce7659;">Sacrament Records</h1>
+    <el-button
+      type="primary"
+      icon="el-icon-plus"
+      size="medium"
+      @click="dialogVisible = true"
+      style="box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5);"
+    >Add Sacrament Record</el-button>
+  </div>
+
+  <!-- Cards Grid -->
+  <div
+    class="sacrament-grid"
+    style="
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 28px;
+    "
+  >
+    <el-card
+      v-for="sacrament in sacraments"
+      :key="sacrament.value"
+      class="clickable-card"
+      shadow="hover"
+      @click="openSacramentDetails(sacrament.value)"
+      style="
+        cursor: pointer;
+        border-radius: 16px;
+        transition: box-shadow 0.3s ease, transform 0.3s ease;
+        background: #fff;
+        min-height: 160px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 20px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+      "
+      @mouseover.native="hoveredCard = sacrament.value"
+      @mouseleave.native="hoveredCard = ''"
+      :style="hoveredCard === sacrament.value ? 'transform: translateY(-8px); box-shadow: 0 14px 28px rgba(102, 126, 234, 0.3);' : ''"
+    >
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <span style="font-weight: 700; font-size: 1.4rem; color: #3b82f6;">{{ sacrament.label }}</span>
+        <el-badge :value="getSacramentRecordCount(sacrament.value)" class="item" style="font-weight: 600;"></el-badge>
+      </div>
+
+      <div style="color: #64748b; font-size: 1rem;">
+        Click to view detailed records of {{ sacrament.label.toLowerCase() }}.
+      </div>
+    </el-card>
+  </div>
+
+  <!-- Add Sacrament Dialog -->
+  <el-dialog title="New Sacrament Record" :visible.sync="dialogVisible" width="500px" :before-close="handleDialogClose">
+    <el-form :model="form" label-width="120px" status-icon>
+      <el-form-item label="Parishioner" :rules="[{ required: true, message: 'Select a parishioner', trigger: 'change' }]">
+        <el-select v-model="form.parishioner" placeholder="Select parishioner" filterable>
+          <el-option
+            v-for="p in parishioners"
+            :key="p.id"
+            :label="p.first_name + ' ' + p.last_name"
+            :value="p.id">
+          </el-option>
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="Sacrament" :rules="[{ required: true, message: 'Select a sacrament', trigger: 'change' }]">
+        <el-select v-model="form.sacrament" placeholder="Select sacrament">
+          <el-option
+            v-for="item in sacraments"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value">
+          </el-option>
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="Date" :rules="[{ type: 'date', required: true, message: 'Pick a date', trigger: 'change' }]">
+        <el-date-picker v-model="form.date" type="date" placeholder="Select date" style="width: 100%;"></el-date-picker>
+      </el-form-item>
+
+      <el-form-item label="Priest" :rules="[{ required: true, message: 'Enter priest name', trigger: 'blur' }]">
+        <el-input v-model="form.priest"></el-input>
+      </el-form-item>
+    </el-form>
+
+    <span slot="footer" class="dialog-footer" style="text-align: right;">
+      <el-button @click="dialogVisible = false">Cancel</el-button>
+      <el-button type="primary" @click="submitForm">Submit</el-button>
+    </span>
+  </el-dialog>
+
+  <!-- Sacrament Details Dialog -->
+  <el-dialog
+    :title="selectedSacramentLabel"
+    :visible.sync="detailsDialogVisible"
+    width="600px"
+    :before-close="() => { detailsDialogVisible = false; selectedSacrament = ''; }"
+  >
+    <el-timeline>
+      <el-timeline-item
+        v-for="record in filteredRecords(selectedSacrament)"
+        :key="record.id"
+        :timestamp="new Date(record.date).toLocaleDateString()"
+        placement="top"
+        type="success"
+      >
+        <div><strong>Parishioner:</strong> {{ record.parishioner_name }}</div>
+        <div><strong>Priest:</strong> {{ record.priest }}</div>
+      </el-timeline-item>
+      <div v-if="filteredRecords(selectedSacrament).length === 0" style="text-align:center; color:#9ca3af; padding: 20px;">
+        No records available for this sacrament.
+      </div>
+    </el-timeline>
+  </el-dialog>
+  {% endverbatim %}
+</div>
+{% endblock %}
+
+{% block script %}
+<!-- Element UI + Vue + Axios -->
+<script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.10/lib/theme-chalk/index.css">
+<script src="https://unpkg.com/element-ui@2.15.10/lib/index.js"></script>
+
+<script>
+new Vue({
+  el: '#app',
+  data() {
+    return {
+      dialogVisible: false,
+      detailsDialogVisible: false,
+      selectedSacrament: '',
+      hoveredCard: '',
+      form: {
+        parishioner: '',
+        sacrament: '',
+        date: '',
+        priest: ''
+      },
+      sacraments: [
+        { value: 'baptism', label: 'Baptism' },
+        { value: 'confirmation', label: 'Confirmation' },
+        { value: 'eucharist', label: 'Eucharist' },
+        { value: 'reconciliation', label: 'Reconciliation' },
+        { value: 'anointing', label: 'Anointing of the Sick' },
+        { value: 'marriage', label: 'Marriage' },
+        { value: 'holy_orders', label: 'Holy Orders' }
+      ],
+      parishioners: [],
+      sacramentRecords: []
+    };
+  },
+  computed: {
+    selectedSacramentLabel() {
+      const sacrament = this.sacraments.find(s => s.value === this.selectedSacrament);
+      return sacrament ? sacrament.label : '';
+    }
+  },
+  created() {
+    this.fetchParishioners();
+    this.fetchSacramentRecords();
+  },
+  methods: {
+    fetchParishioners() {
+      axios.get('/api/parishioners/')
+        .then(response => {
+          this.parishioners = response.data;
+        })
+        .catch(error => {
+          console.error('Error fetching parishioners:', error);
+        });
+    },
+    fetchSacramentRecords() {
+      axios.get('/api/sacrament-records/')
+        .then(response => {
+          this.sacramentRecords = response.data.map(record => ({
+            ...record,
+            parishioner_name: `${record.parishioner.first_name} ${record.parishioner.last_name}`
+          }));
+        })
+        .catch(error => {
+          console.error('Error fetching sacrament records:', error);
+        });
+    },
+    submitForm() {
+      if (!this.form.parishioner || !this.form.sacrament || !this.form.date || !this.form.priest) {
+        this.$message.error("All fields are required.");
+        return;
+      }
+
+      // Prepare payload: parishioner_id is 'parishioner' in backend serializer
+      const payload = {
+        parishioner_id: this.form.parishioner,
+        sacrament: this.form.sacrament,
+        date: this.form.date,
+        priest: this.form.priest
+      };
+
+      axios.post('/api/sacrament-records/', payload, {
+        headers: { 'X-CSRFToken': getCookie('csrftoken') }
+      }).then(() => {
+        this.dialogVisible = false;
+        this.$message.success("Sacrament record added!");
+        this.fetchSacramentRecords();
+        this.form = { parishioner: '', sacrament: '', date: '', priest: '' };
+      }).catch(err => {
+        console.error(err);
+        this.$message.error("Failed to add sacrament record.");
+      });
+    },
+    filteredRecords(type) {
+      return this.sacramentRecords.filter(r => r.sacrament === type);
+    },
+    getSacramentRecordCount(type) {
+      return this.sacramentRecords.filter(r => r.sacrament === type).length;
+    },
+    openSacramentDetails(type) {
+      this.selectedSacrament = type;
+      this.detailsDialogVisible = true;
+    },
+    handleDialogClose() {
+      this.dialogVisible = false;
+      this.form = { parishioner: '', sacrament: '', date: '', priest: '' };
+    }
+  }
+});
+
+// CSRF helper (Django default cookie name)
+function getCookie(name) {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== '') {
+    const cookies = document.cookie.split(';');
+    for (let cookie of cookies) {
+      cookie = cookie.trim();
+      if (cookie.startsWith(name + '=')) {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+}
+</script>
+
+{% endblock %}
