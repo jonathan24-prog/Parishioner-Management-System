@@ -68,7 +68,7 @@
     el: '#app',
     data() {
       return {
-        columns: ['id', 'username', 'address', 'action'],  // Added 'address' here
+        columns: ['id', 'username', 'address','gender','contact','birthdate', 'action'],  // Added 'address' here
         parishioners: [],
         ids: [],
         selectedTable: 'parishioners',
@@ -97,7 +97,10 @@
             this.ids = res.data.map(user => ({
               id: user.id,
               username: `${user.first_name} ${user.last_name}`,
-              address: user.address,  // Added address here
+              gender: user.gender,
+              contact: user.contact, 
+              address: user.address,
+              birthdate: user.birthdate, 
               uri: `/editparishioner/${user.id}`
             }));
           })

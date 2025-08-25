@@ -567,7 +567,7 @@ class CustomUserViewSet(viewsets.ModelViewSet):
                 last_name=user.last_name,
                 contact=user.phone_number,
                 address=user.address,
-                birthdate=user.birthdate  
+                birthdate=user.birthdate,  
             )
         else:
             parishioner = user.parishioner

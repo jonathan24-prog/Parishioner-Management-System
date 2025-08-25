@@ -13,7 +13,7 @@ class ParishionerFormUpdate(forms.ModelForm):
         model = Parishioner
         fields = [
             'name', 'contact', 'gender', 'marital_status', 'nationality', 
-            'address', 'emergency_contact', 'family_group', 'date_approved'
+            'address', 'emergency_contact', 'family_group', 'date_approved', 'birthdate'
         ]
         widgets = {
             'date_approved': forms.DateTimeInput(attrs={'type': 'datetime-local'}),

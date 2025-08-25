@@ -111,10 +111,13 @@
   >
     <el-table-column prop="parishioner_name" label="Parishioner" sortable></el-table-column>
     <el-table-column prop="sacrament" label="Sacrament" sortable></el-table-column>
-    <el-table-column prop="date_received" label="Date Received" sortable></el-table-column>
+    <el-table-column prop="date_received" label="Date Received" ></el-table-column>
     <el-table-column prop="place_received" label="Place Received"></el-table-column>
     <el-table-column prop="officiant" label="Officiant"></el-table-column>
-    <el-table-column prop="notes" label="Notes"></el-table-column>
+    <el-table-column  prop="notes"label="Notes" width="300">
+      
+    </el-table-column>
+
     <el-table-column prop="certificate_requested" label="Certificate Requested">
       <template #default="scope">
         <span v-if="scope.row.certificate_requested">✅ Requested</span>
@@ -147,6 +150,20 @@
   </div>
 </div>
 {% endblock %}
+
+<style>
+/* Make the notes scrollable if long */
+.notes-cell {
+  max-height: 80px;       /* Limit height */
+  overflow-y: auto;       /* Add scroll if needed */
+  white-space: normal;    /* Allow wrapping */
+  word-break: break-word; /* Handle long words */
+  padding: 4px;
+  border: 1px solid #eee;
+  border-radius: 4px;
+  background: #fafafa;
+}
+</style>
 
 {% block script %}
 <script>
