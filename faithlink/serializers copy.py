@@ -25,78 +25,18 @@ class CustomUserSerializer(serializers.ModelSerializer):
 # Parishioner Serializer
 # -------------------------
 from rest_framework import serializers
-from .models import Group, Parishioner, Membership, Announcement, GroupEvent
-
-class ParishionerBriefSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Parishioner
-        fields = ['id', 'name', 'first_name', 'last_name']
-
-class MembershipSerializer(serializers.ModelSerializer):
-    parishioner = ParishionerBriefSerializer(read_only=True)
-    parishioner_id = serializers.PrimaryKeyRelatedField(
-        queryset=Parishioner.objects.all(), write_only=True, source='parishioner'
-    )
-
-    class Meta:
-        model = Membership
-        fields = ['id', 'parishioner', 'parishioner_id', 'role', 'status', 'requested_at', 'approved_at']
-
-class AnnouncementSerializer(serializers.ModelSerializer):
-    created_by = ParishionerBriefSerializer(read_only=True)
-
-    class Meta:
-        model = Announcement
-        fields = ['id', 'title', 'content', 'created_by', 'created_at']
-
-class GroupEventSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = GroupEvent
-        fields = ['id', 'title', 'description', 'start_at', 'end_at', 'location']
+from .models import Group
 
 class GroupSerializer(serializers.ModelSerializer):
-    leader = ParishionerBriefSerializer(read_only=True)
-    leader_id = serializers.PrimaryKeyRelatedField(
-        queryset=Parishioner.objects.all(), write_only=True, allow_null=True, required=False, source='leader'
-    )
-    members_count = serializers.IntegerField(read_only=True)
-    # user-context fields
-    is_member = serializers.SerializerMethodField()
-    request_pending = serializers.SerializerMethodField()
-
     class Meta:
         model = Group
-        fields = ['id', 'name', 'description', 'type', 'leader', 'leader_id',
-                  'created_at', 'active', 'members_count', 'is_member', 'request_pending']
-
-    def get_is_member(self, obj):
-        request = self.context.get('request')
-        if not request or not request.user.is_authenticated:
-            return False
-        try:
-            parish = Parishioner.objects.get(user=request.user)
-        except Parishioner.DoesNotExist:
-            return False
-        return Membership.objects.filter(group=obj, parishioner=parish, status='APPROVED').exists()
-
-    def get_request_pending(self, obj):
-        request = self.context.get('request')
-        if not request or not request.user.is_authenticated:
-            return False
-        try:
-            parish = Parishioner.objects.get(user=request.user)
-        except Parishioner.DoesNotExist:
-            return False
-        return Membership.objects.filter(group=obj, parishioner=parish, status='PENDING').exists()
-
+        fields =  '__all__'
 
 class ParishionerSerializer(serializers.ModelSerializer):
-    # Optional: keep groups as read-only summarized list
+    groups = GroupSerializer(many=True, read_only=True)
     class Meta:
         model = Parishioner
         fields = '__all__'
-        read_only_fields = ['groups']
-
 
 
 from rest_framework import serializers

@@ -44,6 +44,8 @@
             <el-button type="success" size="small" circle icon="el-icon-edit"></el-button>
           </a>
         </template>
+
+
       </v-client-table>
 
       <!-- Pending Approvals Table -->
@@ -68,7 +70,7 @@
     el: '#app',
     data() {
       return {
-        columns: ['id', 'username', 'address','gender','contact','birthdate', 'action'],  // Added 'address' here
+        columns: ['id', 'username', 'address', 'gender', 'contact', 'birthdate', 'groups', 'action'], // ✅ Added 'groups'
         parishioners: [],
         ids: [],
         selectedTable: 'parishioners',
@@ -100,7 +102,9 @@
               gender: user.gender,
               contact: user.contact, 
               address: user.address,
-              birthdate: user.birthdate, 
+              birthdate: user.birthdate,
+             groups: user.groups ? user.groups.map(g => g.name).join(', ') : 'No Groups',
+ // ✅ Add groups here
               uri: `/editparishioner/${user.id}`
             }));
           })

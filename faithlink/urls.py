@@ -16,12 +16,14 @@ from .views import (
     events_view, financial_view, sacramentals_view, ParishionerViewSet, 
     CustomUserViewSet,get_upcoming_events,mark_attendance_event,MyQr_view,MySacramentRecordViewSet,
     IndividualCertificatePDFView, user_attendance_history,privacy_policy, user_donation_view,
-    user_donations, receipt_view, attendance_summary, attendance_over_time
+    user_donations, receipt_view, attendance_summary, attendance_over_time, groups_view,GroupViewSet,
+    groups_view_user
 )
 
 # DRF Router setup
 router = DefaultRouter()
 router.register(r'parishioners', ParishionerViewSet)
+router.register(r'groups', GroupViewSet)
 router.register(r'customusers', CustomUserViewSet)
 router.register(r'events', EventViewSet, basename='events')
 router.register(r'donations', DonationViewSet, basename='donation')
@@ -58,6 +60,10 @@ urlpatterns = [
     path('parishionersReq/', parishionersReq_view, name='parishionersReq'),
     path('editparishioner/<int:pk>', editparishioner, name='editparishioner'),
     path('parishioner/qr/', generate_parishioner_qr, name='generate_parishioner_qr'),
+
+    # groups
+    path('groups/', groups_view, name='groups'),
+    path('groups_user/', groups_view_user, name='groups_user'),
 
     # Events
     path('events/', events_view, name='events'),

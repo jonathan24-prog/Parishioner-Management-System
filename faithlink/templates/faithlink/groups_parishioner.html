@@ -1,0 +1,195 @@
+{% extends 'faithlink/basemenu.html' %}
+
+{% block content %}
+<div id="parishioner-groups-app" class="container py-5">
+  <h2 class="text-center mb-4" style="font-size: 2.2rem; color: #ce7659;">Join a Group</h2>
+
+  <!-- Search & Filter -->
+  <div class="mb-4 flex justify-between items-center">
+    <el-input
+      placeholder="Search for a group"
+      v-model="search"
+      prefix-icon="el-icon-search"
+      style="width: 250px;">
+    </el-input>
+
+    <el-select v-model="filterType" placeholder="Filter by type" clearable style="width: 220px;">
+      <el-option v-for="type in groupTypes" :key="type" :label="type" :value="type"></el-option>
+    </el-select>
+  </div>
+
+  <el-table
+    v-loading="loading"
+    :data="filteredGroups"
+    style="width: 100%;"
+    empty-text="No groups found."
+    border
+    size="small">
+    
+    <el-table-column prop="name" label="Group Name" width="220"></el-table-column>
+    <el-table-column prop="type" label="Type" width="160"></el-table-column>
+    <el-table-column prop="description" label="Description"></el-table-column>
+    <el-table-column prop="members_count" label="Members" width="120"></el-table-column>
+    <el-table-column label="Actions" width="260">
+      <template #default="scope">
+        <el-button size="mini" @click="openDetails(scope.row)">Details</el-button>
+
+        <el-button
+          size="mini"
+          type="success"
+          v-if="!scope.row.is_member && !scope.row.request_pending"
+          @click="requestJoin(scope.row)">
+          Join
+        </el-button>
+
+        <el-button
+          size="mini"
+          type="warning"
+          v-if="scope.row.request_pending"
+          @click="cancelRequest(scope.row)">
+          Cancel Request
+        </el-button>
+
+        <el-button
+          size="mini"
+          type="danger"
+          v-if="scope.row.is_member"
+          @click="leaveGroup(scope.row)">
+          Leave
+        </el-button>
+      </template>
+    </el-table-column>
+  </el-table>
+
+  <!-- Group Details -->
+  <el-drawer :visible.sync="detailsVisible" size="50%" title="Group Details">
+    <div v-if="activeGroup">
+      <h3 style="margin-bottom: 6px;">{{ activeGroup.name }}</h3>
+      <p style="margin-top: 0;"><b>Type:</b> {{ activeGroup.type }}</p>
+     <p><b>Leader:</b>
+  <span v-if="activeGroup.leader && activeGroup.leader.first_name">
+  {{ activeGroup.leader.first_name }}
+</span>
+<span v-else-if="activeGroup.leader && activeGroup.leader.name">
+  {{ activeGroup.leader.name }}
+</span>
+<span v-else>—</span>
+
+  <span v-else>—</span>
+</p>
+
+      <p style="white-space: pre-wrap;">{{ activeGroup.description }}</p>
+
+      <el-divider>Announcements</el-divider>
+      <el-timeline>
+        <el-timeline-item
+          v-for="a in announcements"
+          :key="a.id"
+          :timestamp="formatDate(a.created_at)">
+          <b>{{ a.title }}</b><br>{{ a.content }}
+        </el-timeline-item>
+      </el-timeline>
+
+      <el-divider>Upcoming Events</el-divider>
+      <el-empty v-if="events.length === 0" description="No upcoming events"></el-empty>
+      <el-card v-for="e in events" :key="e.id" class="mb-2">
+        <b>{{ e.title }}</b>
+        <div>{{ e.description }}</div>
+        <div><i class="el-icon-date"></i> <p v-text="formatDate(e.start_at)"></p>
+<span v-if="e.location">• {{ e.location }}</span></div>
+      </el-card>
+    </div>
+  </el-drawer>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+new Vue({
+  el: '#parishioner-groups-app',
+  data() {
+    return {
+      groups: [],
+      loading: false,
+      search: '',
+      filterType: '',
+      groupTypes: ['Choir', 'Youth Ministry', 'Bible Study', 'Ushering', 'Praise & Worship', 'Committee', 'Other'],
+      detailsVisible: false,
+      activeGroup: null,
+      announcements: [],
+      events: [],
+    };
+  },
+  computed: {
+    filteredGroups() {
+      let result = this.groups;
+      if (this.search) {
+        const s = this.search.toLowerCase();
+        result = result.filter(g => (g.name || '').toLowerCase().includes(s));
+      }
+      if (this.filterType) {
+        result = result.filter(g => g.type === this.filterType);
+      }
+      return result;
+    }
+  },
+  mounted() {
+    this.fetchGroups();
+  },
+  methods: {
+    getCSRFToken() {
+      const name = 'csrftoken';
+      const cookies = document.cookie.split(';');
+      for (let cookie of cookies) {
+        const trimmed = cookie.trim();
+        if (trimmed.startsWith(name + '=')) return decodeURIComponent(trimmed.substring(name.length + 1));
+      }
+      return null;
+    },
+    formatDate(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      return d.toLocaleString();
+    },
+    fetchGroups() {
+      this.loading = true;
+      axios.get('/api/groups/')
+        .then(res => { this.groups = res.data; })
+        .catch(() => this.$message.error("Failed to load groups."))
+        .finally(() => this.loading = false);
+    },
+    requestJoin(group) {
+      axios.post(`/api/groups/${group.id}/join/`, {}, {
+        headers: { 'X-CSRFToken': this.getCSRFToken() }
+      })
+      .then(() => { this.$message.success("Join request sent!"); group.request_pending = true; })
+      .catch(() => this.$message.error("Failed to send join request."));
+    },
+    cancelRequest(group) {
+      axios.post(`/api/groups/${group.id}/cancel-request/`, {}, {
+        headers: { 'X-CSRFToken': this.getCSRFToken() }
+      })
+      .then(() => { this.$message.success("Join request canceled!"); group.request_pending = false; })
+      .catch(() => this.$message.error("Failed to cancel request."));
+    },
+    leaveGroup(group) {
+      this.$confirm('Are you sure you want to leave this group?', 'Warning', {
+        confirmButtonText: 'Yes', cancelButtonText: 'No', type: 'warning'
+      }).then(() => {
+        axios.post(`/api/groups/${group.id}/leave/`, {}, {
+          headers: { 'X-CSRFToken': this.getCSRFToken() }
+        })
+        .then(() => { this.$message.success("You left the group."); group.is_member = false; })
+        .catch(() => this.$message.error("Failed to leave group."));
+      }).catch(() => {});
+    },
+    openDetails(group) {
+      this.activeGroup = group;
+      this.detailsVisible = true;
+      axios.get(`/api/groups/${group.id}/announcements/`).then(r => this.announcements = r.data);
+      axios.get(`/api/groups/${group.id}/events/`).then(r => this.events = r.data);
+    }
+  }
+});
+</script>
+{% endblock %}

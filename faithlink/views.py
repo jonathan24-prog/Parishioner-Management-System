@@ -80,6 +80,25 @@ from django.db.models.functions import ExtractMonth, ExtractDay
 from django.db.models import Q
 from faithlink.models import Event, Parishioner
 
+
+
+from rest_framework import viewsets
+from .models import Group
+from .serializers import GroupSerializer
+
+from rest_framework import viewsets, status
+from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.response import Response
+from django.db.models import Count, Q
+from django.http import HttpResponse
+import csv
+from django.utils.timezone import now as tz_now
+
+from .models import Group, Parishioner, Membership, Announcement, GroupEvent, ActivityLog
+from .serializers import GroupSerializer, MembershipSerializer, AnnouncementSerializer, GroupEventSerializer
+
+
 @login_required
 def dashboard_view(request):
     context = get_parishionerSignup(request.user)
@@ -132,6 +151,14 @@ def LandingPage_view(request):
 def parishioners_view(request):
     context = get_parishionerSignup(request.user)
     return render(request, 'faithlink/parishioners.html', context)
+
+def groups_view(request):
+    context = get_parishionerSignup(request.user)
+    return render(request, 'faithlink/groups.html', context)
+
+def groups_view_user(request):
+    context = get_parishionerSignup(request.user)
+    return render(request, 'faithlink/groups_parishioner.html', context)
 
 def parishionersReq_view(request):
     context = get_parishionerSignup(request.user)
@@ -544,6 +571,254 @@ def mark_attendance_event(request):
 class ParishionerViewSet(viewsets.ModelViewSet):
     queryset = Parishioner.objects.all()
     serializer_class = ParishionerSerializer
+
+def _get_parishioner(user):
+    return Parishioner.objects.get(user=user)
+
+def _is_group_admin(user, group: Group):
+    # System staff or this group's leader is allowed
+    if user.is_staff or user.is_superuser:
+        return True
+    try:
+        parish = _get_parishioner(user)
+    except Parishioner.DoesNotExist:
+        return False
+    return group.leader_id == parish.id or Membership.objects.filter(
+        group=group, parishioner=parish, role='LEADER', status='APPROVED'
+    ).exists()
+
+class GroupViewSet(viewsets.ModelViewSet):
+    queryset = Group.objects.all().annotate(
+        members_count=Count('membership', filter=Q(membership__status='APPROVED'))
+    )
+    serializer_class = GroupSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_context(self):
+        ctx = super().get_serializer_context()
+        ctx['request'] = self.request
+        return ctx
+
+    # ---- USER ACTIONS ----
+    @action(methods=['post'], detail=True, url_path='join')
+    def join(self, request, pk=None):
+        group = self.get_object()
+        try:
+            parish = _get_parishioner(request.user)
+        except Parishioner.DoesNotExist:
+            return Response({'detail': 'Parishioner profile required.'}, status=400)
+
+        membership, created = Membership.objects.get_or_create(
+            group=group, parishioner=parish, defaults={'status': 'PENDING'}
+        )
+        if not created and membership.status == 'REJECTED':
+            membership.status = 'PENDING'
+            membership.save()
+
+        ActivityLog.objects.create(group=group, actor=parish, action='Join Request', details=f'{parish} requested to join')
+        return Response({'detail': 'Join request sent.'})
+
+    @action(methods=['post'], detail=True, url_path='cancel-request')
+    def cancel_request(self, request, pk=None):
+        group = self.get_object()
+        try:
+            parish = _get_parishioner(request.user)
+        except Parishioner.DoesNotExist:
+            return Response({'detail': 'Parishioner profile required.'}, status=400)
+
+        Membership.objects.filter(group=group, parishioner=parish, status='PENDING').delete()
+        ActivityLog.objects.create(group=group, actor=parish, action='Cancel Request', details=f'{parish} canceled request')
+        return Response({'detail': 'Join request canceled.'})
+
+    @action(methods=['post'], detail=True, url_path='leave')
+    def leave(self, request, pk=None):
+        group = self.get_object()
+        try:
+            parish = _get_parishioner(request.user)
+        except Parishioner.DoesNotExist:
+            return Response({'detail': 'Parishioner profile required.'}, status=400)
+
+        Membership.objects.filter(group=group, parishioner=parish, status='APPROVED').delete()
+        ActivityLog.objects.create(group=group, actor=parish, action='Left Group', details=f'{parish} left the group')
+        return Response({'detail': 'You left the group.'})
+
+    # ---- ADMIN/LEADER ACTIONS ----
+    @action(methods=['post'], detail=True, url_path='assign')
+    def assign(self, request, pk=None):
+        group = self.get_object()
+        if not _is_group_admin(request.user, group):
+            return Response({'detail': 'Not allowed.'}, status=403)
+        member_ids = request.data.get('members', [])
+        for pid in member_ids:
+            membership, _ = Membership.objects.get_or_create(group=group, parishioner_id=pid)
+            membership.status = 'APPROVED'
+            membership.role = membership.role or 'MEMBER'
+            membership.approved_at = tz_now()
+            membership.save()
+        ActivityLog.objects.create(group=group, actor=_get_parishioner(request.user), action='Assign Members', details=f'Assigned {len(member_ids)} members')
+        return Response({'detail': 'Members assigned.'})
+
+    @action(methods=['post'], detail=True, url_path='approve')
+    def approve(self, request, pk=None):
+        group = self.get_object()
+        if not _is_group_admin(request.user, group):
+            return Response({'detail': 'Not allowed.'}, status=403)
+        membership_id = request.data.get('membership_id')
+        try:
+            m = Membership.objects.get(id=membership_id, group=group)
+        except Membership.DoesNotExist:
+            return Response({'detail': 'Membership not found.'}, status=404)
+        m.status = 'APPROVED'
+        m.approved_at = tz_now()
+        m.save()
+        ActivityLog.objects.create(group=group, actor=_get_parishioner(request.user), action='Approve Member', details=f'Approved {m.parishioner}')
+        return Response({'detail': 'Member approved.'})
+
+    @action(methods=['post'], detail=True, url_path='reject')
+    def reject(self, request, pk=None):
+        group = self.get_object()
+        if not _is_group_admin(request.user, group):
+            return Response({'detail': 'Not allowed.'}, status=403)
+        membership_id = request.data.get('membership_id')
+        try:
+            m = Membership.objects.get(id=membership_id, group=group)
+        except Membership.DoesNotExist:
+            return Response({'detail': 'Membership not found.'}, status=404)
+        m.status = 'REJECTED'
+        m.save()
+        ActivityLog.objects.create(group=group, actor=_get_parishioner(request.user), action='Reject Member', details=f'Rejected {m.parishioner}')
+        return Response({'detail': 'Member rejected.'})
+
+    @action(methods=['post'], detail=True, url_path='set-leader')
+    def set_leader(self, request, pk=None):
+        group = self.get_object()
+        if not _is_group_admin(request.user, group):
+            return Response({'detail': 'Not allowed.'}, status=403)
+        leader_id = request.data.get('leader_id')
+        group.leader_id = leader_id
+        group.save()
+        # also mark membership as leader/approved
+        m, _ = Membership.objects.get_or_create(group=group, parishioner_id=leader_id)
+        m.role = 'LEADER'
+        m.status = 'APPROVED'
+        m.approved_at = tz_now()
+        m.save()
+        ActivityLog.objects.create(group=group, actor=_get_parishioner(request.user), action='Set Leader', details=f'Leader set to parishioner #{leader_id}')
+        return Response({'detail': 'Leader assigned.'})
+
+    @action(methods=['get'], detail=True, url_path='pending')
+    def pending(self, request, pk=None):
+        group = self.get_object()
+        if not _is_group_admin(request.user, group):
+            return Response({'detail': 'Not allowed.'}, status=403)
+        qs = Membership.objects.filter(group=group, status='PENDING').select_related('parishioner')
+        return Response(MembershipSerializer(qs, many=True).data)
+
+    @action(methods=['get'], detail=True, url_path='members')
+    def members(self, request, pk=None):
+        group = self.get_object()
+        if not _is_group_admin(request.user, group):
+            return Response({'detail': 'Not allowed.'}, status=403)
+        qs = Membership.objects.filter(group=group, status='APPROVED').select_related('parishioner')
+        return Response(MembershipSerializer(qs, many=True).data)
+
+    @action(methods=['post'], detail=True, url_path='announce')
+    def announce(self, request, pk=None):
+        group = self.get_object()
+        if not _is_group_admin(request.user, group):
+            return Response({'detail': 'Not allowed.'}, status=403)
+
+        # Try to get parishioner; allow None for admin users
+        try:
+            parish = _get_parishioner(request.user)
+        except Parishioner.DoesNotExist:
+            parish = None
+
+        ser = AnnouncementSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+
+        # Allow created_by to be null for admins
+        ann = Announcement.objects.create(
+            group=group,
+            created_by=parish,
+            **ser.validated_data
+        )
+
+        # Activity log (actor can also be None)
+        ActivityLog.objects.create(
+            group=group,
+            actor=parish,
+            action='Announcement',
+            details=ann.title
+        )
+
+        return Response(AnnouncementSerializer(ann).data, status=201)
+
+
+    @action(methods=['get'], detail=True, url_path='announcements')
+    def announcements(self, request, pk=None):
+        group = self.get_object()
+        anns = group.announcements.order_by('-created_at')[:50]
+        return Response(AnnouncementSerializer(anns, many=True).data)
+
+    @action(methods=['post'], detail=True, url_path='events')
+    def create_event(self, request, pk=None):
+        group = self.get_object()
+        if not _is_group_admin(request.user, group):
+            return Response({'detail': 'Not allowed.'}, status=403)
+        ser = GroupEventSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        evt = GroupEvent.objects.create(group=group, **ser.validated_data)
+        ActivityLog.objects.create(group=group, actor=_get_parishioner(request.user), action='Create Event', details=evt.title)
+        return Response(GroupEventSerializer(evt).data, status=201)
+
+    @action(methods=['get'], detail=True, url_path='events')
+    def list_events(self, request, pk=None):
+        group = self.get_object()
+        evts = group.events.order_by('start_at')
+        return Response(GroupEventSerializer(evts, many=True).data)
+
+    @action(methods=['get'], detail=True, url_path='activity')
+    def activity(self, request, pk=None):
+        group = self.get_object()
+        if not _is_group_admin(request.user, group):
+            return Response({'detail': 'Not allowed.'}, status=403)
+        data = [{'id': a.id, 'actor': str(a.actor) if a.actor else None, 'action': a.action, 'details': a.details, 'created_at': a.created_at} for a in group.activity_logs.all()[:100]]
+        return Response(data)
+
+    @action(methods=['get'], detail=False, url_path='stats')
+    def stats(self, request):
+        # global stats across all groups
+        qs = Group.objects.all().annotate(members_count=Count('membership', filter=Q(membership__status='APPROVED')))
+        total_groups = qs.count()
+        total_memberships = Membership.objects.filter(status='APPROVED').count()
+        active_groups = qs.filter(active=True).count()
+        data = {
+            'total_groups': total_groups,
+            'total_memberships': total_memberships,
+            'active_groups': active_groups,
+            'per_group': GroupSerializer(qs, many=True, context={'request': request}).data
+        }
+        return Response(data)
+
+    @action(methods=['get'], detail=True, url_path='export-members')
+    def export_members(self, request, pk=None):
+        group = self.get_object()
+        if not _is_group_admin(request.user, group):
+            return Response({'detail': 'Not allowed.'}, status=403)
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="{group.name}_members.csv"'
+        writer = csv.writer(response)
+        writer.writerow(['Parishioner ID', 'Name', 'Role', 'Approved At'])
+
+        for m in Membership.objects.filter(group=group, status='APPROVED').select_related('parishioner'):
+            nm = m.parishioner.first_name or ''
+            ln = m.parishioner.last_name or ''
+            name = f"{nm} {ln}".strip() or m.parishioner.name
+            writer.writerow([m.parishioner.parishioner_id, name, m.role, m.approved_at])
+        return response
+
 
 class CustomUserViewSet(viewsets.ModelViewSet):
     queryset = CustomUser.objects.filter(is_parishioner=False, is_superuser=False)

@@ -195,6 +195,14 @@
             </a>
           </li>
           <li class="nav-item">
+            <a class='sidebar-link' href="{% url 'groups' %}">
+              <span class="icon-holder">
+                <i class="c-deep-orange-500 ti-id-badge"></i>
+              </span>
+              <span class="title">Groups</span>
+            </a>
+          </li>
+          <li class="nav-item">
             <a class='sidebar-link' href="{% url 'attendance' %}">
               <span class="icon-holder">
                 <i class="c-yellow-500 ti-book"></i>
@@ -230,6 +238,14 @@
           </li>
           {%endif%}
           {%if request.user.is_parishioner%}
+           <li class="nav-item">
+            <a class='sidebar-link' href="{% url 'groups_user' %}">
+              <span class="icon-holder">
+                <i class="c-deep-orange-500 ti-id-badge"></i>
+              </span>
+              <span class="title">Groups</span>
+            </a>
+          </li>
           <li class="nav-item">
             <a class='sidebar-link' href="{% url 'QRview' %}">
               <span class="icon-holder">

@@ -1,5 +1,4 @@
 {% extends 'faithlink/basemenu.html' %}
-
 {% load widget_tweaks %}
 
 {% block content %}
@@ -34,7 +33,7 @@
                             {{ form.nationality|add_class:"form-control border border-dark" }}
                         </div>
                         <div class="mb-3">
-                            <label class="form-label fw-bold">birthdate</label>
+                            <label class="form-label fw-bold">Birthdate</label>
                             {{ form.birthdate|add_class:"form-control border border-dark" }}
                         </div>
                     </div>
@@ -55,10 +54,16 @@
                             <label class="form-label fw-bold">Date Approved</label>
                             {{ form.date_approved|add_class:"form-control border border-dark" }}
                         </div>
+                        <!-- ✅ New Groups Section -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Groups</label>
+                            {{ form.groups|add_class:"form-select border border-dark" }}
+                            <small class="text-muted">Hold CTRL (Windows) or CMD (Mac) to select multiple.</small>
+                        </div>
                     </div>
                 </div>
                 <div class="text-center mt-4">
-                    <button type="submit" class="btn px-4" style="background-color: #ce7659;">Save</button>
+                    <button type="submit" class="btn px-4 text-white" style="background-color: #ce7659;">Save</button>
                     <a href="{% url 'parishioners' %}" class="btn btn-secondary px-4">Cancel</a>
                 </div>
             </form>

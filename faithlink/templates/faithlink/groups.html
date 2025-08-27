@@ -1,0 +1,256 @@
+{% extends 'faithlink/basemenu.html' %}
+
+{% block content %}
+<div id="group-management-app" class="container py-5">
+  <h2 class="mb-4 text-center" style="font-size: 2.2rem; color: #ce7659;">Manage Groups</h2>
+
+  <el-row :gutter="20">
+    <!-- Create/Edit Group -->
+    <el-col :md="10" :xs="24">
+      <el-card class="shadow-lg p-4 rounded-2xl">
+        <h4 style="margin-bottom: 20px;">{% if editMode %}Update{% else %}Add Group{% endif %}
+</h4>
+        <el-form @submit.native.prevent="saveGroup" :model="form" label-position="top">
+          <el-form-item label="Group Name">
+            <el-input v-model="form.name" placeholder="Enter group name"></el-input>
+          </el-form-item>
+          <el-form-item label="Type">
+            <el-select v-model="form.type" placeholder="Select type">
+              <el-option v-for="t in groupTypes" :key="t" :label="t" :value="t"></el-option>
+            </el-select>
+          </el-form-item>
+          <el-form-item label="Description">
+            <el-input type="textarea" v-model="form.description" placeholder="Describe the group" autosize></el-input>
+          </el-form-item>
+          <el-form-item label="Leader (optional)">
+            <el-select v-model="form.leader_id" filterable clearable placeholder="Select leader">
+              <el-option v-for="p in parishioners" :key="p.id" :label="p.name" :value="p.id"></el-option>
+            </el-select>
+          </el-form-item>
+          <el-button type="success" icon="el-icon-check" @click="saveGroup">{{ scope.row.requested_at|date:"Y-m-d H:i" }}
+</el-button>
+          <el-button v-if="editMode" @click="resetForm">Cancel</el-button>
+        </el-form>
+      </el-card>
+    </el-col>
+
+    <!-- Groups Table -->
+    <el-col :md="14" :xs="24">
+      <el-card class="shadow-lg rounded-2xl">
+        <div class="flex items-center justify-between mb-2">
+          <h4>Existing Groups</h4>
+          <el-button type="info" icon="el-icon-data-analysis" @click="openStats">Stats</el-button>
+        </div>
+
+        <el-table v-loading="loading" :data="groups" style="width: 100%;" empty-text="No groups yet." size="small" border>
+          <el-table-column prop="name" label="Group Name"></el-table-column>
+          <el-table-column prop="type" label="Type" width="150"></el-table-column>
+          <el-table-column prop="members_count" label="Members" width="120"></el-table-column>
+          <el-table-column label="Actions" width="420">
+            <template #default="scope">
+              <el-button size="mini" type="primary" @click="startEdit(scope.row)">Edit</el-button>
+              <el-button size="mini" type="danger" @click="deleteGroup(scope.row)">Delete</el-button>
+              <el-button size="mini" type="success" @click="openAssignModal(scope.row)">Add Members</el-button>
+              <el-button size="mini" @click="openPending(scope.row)">Approve Requests</el-button>
+              <el-button size="mini" @click="openAnnounce(scope.row)">Announce</el-button>
+              <el-button size="mini" @click="exportCSV(scope.row)">Export</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-card>
+    </el-col>
+  </el-row>
+
+  <!-- Assign Members Modal -->
+  <el-dialog :visible.sync="assignDialogVisible" width="50%" title="Assign Members">
+    <p><b>Group:</b> {{ selectedGroup.name|default:"No Group Selected" }}
+</p>
+    <el-select v-model="selectedMembers" multiple filterable placeholder="Select parishioners" style="width: 100%;">
+      <el-option v-for="p in parishioners" :key="p.id" :label="p.name" :value="p.id"></el-option>
+    </el-select>
+    <span slot="footer" class="dialog-footer">
+      <el-button @click="assignDialogVisible = false">Cancel</el-button>
+      <el-button type="primary" @click="assignMembers">Assign</el-button>
+    </span>
+  </el-dialog>
+
+  <!-- Pending Requests -->
+  <el-dialog :visible.sync="pendingDialogVisible" width="60%" title="Pending Join Requests">
+    <p><b>Group:</b> {{ selectedGroup.name|default:"No Group Selected" }}
+</p>
+    <el-table :data="pendingMembers" border>
+      <el-table-column prop="parishioner.name" label="Name"></el-table-column>
+      <el-table-column prop="requested_at" label="Requested At" width="220">
+        <template #default="scope">{{ scope.row.requested_at|date:"Y-m-d H:i" }}
+</template>
+      </el-table-column>
+      <el-table-column label="Actions" width="220">
+        <template #default="scope">
+          <el-button size="mini" type="success" @click="approve(scope.row)">Approve</el-button>
+          <el-button size="mini" type="danger" @click="reject(scope.row)">Reject</el-button>
+        </template>
+      </el-table-column>
+    </el-table>
+  </el-dialog>
+
+  <!-- Announce -->
+  <el-dialog :visible.sync="announceDialogVisible" width="40%" title="Send Announcement">
+    <el-form :model="announceForm" label-position="top">
+      <el-form-item label="Title"><el-input v-model="announceForm.title"></el-input></el-form-item>
+      <el-form-item label="Content"><el-input type="textarea" v-model="announceForm.content" autosize></el-input></el-form-item>
+    </el-form>
+    <span slot="footer" class="dialog-footer">
+      <el-button @click="announceDialogVisible = false">Cancel</el-button>
+      <el-button type="primary" @click="sendAnnouncement">Send</el-button>
+    </span>
+  </el-dialog>
+
+  <!-- Stats -->
+  <el-drawer :visible.sync="statsVisible" title="Groups Statistics" size="40%">
+    <div v-if="stats">
+      <p><b>Total Groups:</b> {{ stats.total_groups }}</p>
+      <p><b>Total Memberships:</b> {{ stats.total_memberships }}</p>
+      <p><b>Active Groups:</b> {{ stats.active_groups }}</p>
+      <el-table :data="stats.per_group" size="small" border class="mt-2">
+        <el-table-column prop="name" label="Group"></el-table-column>
+        <el-table-column prop="type" label="Type" width="140"></el-table-column>
+        <el-table-column prop="members_count" label="Members" width="120"></el-table-column>
+      </el-table>
+    </div>
+  </el-drawer>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+new Vue({
+  el: '#group-management-app',
+  data() {
+    return {
+      form: { id: null, name: '', description: '', type: 'Other', leader_id: null },
+      editMode: false,
+
+      groups: [],
+      parishioners: [],
+      loading: false,
+
+      groupTypes: ['Choir', 'Youth Ministry', 'Bible Study', 'Ushering', 'Praise & Worship', 'Committee', 'Other'],
+
+      assignDialogVisible: false,
+      pendingDialogVisible: false,
+      announceDialogVisible: false,
+      statsVisible: false,
+
+      selectedGroup: null,
+      selectedMembers: [],
+      pendingMembers: [],
+      announceForm: { title: '', content: '' },
+      stats: null,
+    };
+  },
+  mounted() {
+    this.fetchGroups();
+    this.fetchParishioners();
+  },
+  methods: {
+    getCSRFToken() {
+      const name = 'csrftoken';
+      const cookies = document.cookie.split(';');
+      for (let cookie of cookies) {
+        const trimmed = cookie.trim();
+        if (trimmed.startsWith(name + '=')) return decodeURIComponent(trimmed.substring(name.length + 1));
+      }
+      return null;
+    },
+    formatDate(iso) {
+      if (!iso) return '';
+      return new Date(iso).toLocaleString();
+    },
+    fetchGroups() {
+      this.loading = true;
+      axios.get('/api/groups/').then(res => { this.groups = res.data; }).finally(() => this.loading = false);
+    },
+    fetchParishioners() {
+      axios.get('/api/parishioners/').then(res => { this.parishioners = res.data; });
+    },
+    resetForm() {
+      this.form = { id: null, name: '', description: '', type: 'Other', leader_id: null };
+      this.editMode = false;
+    },
+    startEdit(row) {
+      this.form = { id: row.id, name: row.name, description: row.description, type: row.type, leader_id: row.leader ? row.leader.id : null };
+      this.editMode = true;
+    },
+    saveGroup() {
+      if (!this.form.name.trim()) { return this.$message.warning("Group name is required."); }
+      const headers = { 'X-CSRFToken': this.getCSRFToken() };
+      if (this.editMode) {
+        axios.put(`/api/groups/${this.form.id}/`, this.form, { headers })
+          .then(() => {
+            if (this.form.leader_id) {
+              axios.post(`/api/groups/${this.form.id}/set-leader/`, { leader_id: this.form.leader_id }, { headers });
+            }
+            this.$message.success("Group updated!");
+            this.resetForm(); this.fetchGroups();
+          })
+          .catch(() => this.$message.error("Failed to update group."));
+      } else {
+        axios.post(`/api/groups/`, this.form, { headers })
+          .then(res => {
+            const created = res.data;
+            if (this.form.leader_id) {
+              axios.post(`/api/groups/${created.id}/set-leader/`, { leader_id: this.form.leader_id }, { headers });
+            }
+            this.$message.success("Group created!");
+            this.resetForm(); this.fetchGroups();
+          })
+          .catch(() => this.$message.error("Failed to create group."));
+      }
+    },
+    deleteGroup(row) {
+      this.$confirm('Delete this group?', 'Warning', { type: 'warning' })
+      .then(() => axios.delete(`/api/groups/${row.id}/`, { headers: { 'X-CSRFToken': this.getCSRFToken() } }))
+      .then(() => { this.$message.success("Group deleted."); this.fetchGroups(); })
+      .catch(() => {});
+    },
+    openAssignModal(group) {
+      this.selectedGroup = group;
+      this.selectedMembers = [];
+      this.assignDialogVisible = true;
+    },
+    assignMembers() {
+      axios.post(`/api/groups/${this.selectedGroup.id}/assign/`, { members: this.selectedMembers }, { headers: { 'X-CSRFToken': this.getCSRFToken() } })
+        .then(() => { this.$message.success("Members assigned!"); this.assignDialogVisible = false; this.fetchGroups(); })
+        .catch(() => this.$message.error("Failed to assign members."));
+    },
+    openPending(group) {
+      this.selectedGroup = group;
+      axios.get(`/api/groups/${group.id}/pending/`).then(res => { this.pendingMembers = res.data; this.pendingDialogVisible = true; });
+    },
+    approve(membership) {
+      axios.post(`/api/groups/${this.selectedGroup.id}/approve/`, { membership_id: membership.id }, { headers: { 'X-CSRFToken': this.getCSRFToken() } })
+        .then(() => { this.$message.success("Approved!"); this.openPending(this.selectedGroup); this.fetchGroups(); });
+    },
+    reject(membership) {
+      axios.post(`/api/groups/${this.selectedGroup.id}/reject/`, { membership_id: membership.id }, { headers: { 'X-CSRFToken': this.getCSRFToken() } })
+        .then(() => { this.$message.success("Rejected."); this.openPending(this.selectedGroup); });
+    },
+    openAnnounce(group) {
+      this.selectedGroup = group;
+      this.announceForm = { title: '', content: '' };
+      this.announceDialogVisible = true;
+    },
+    sendAnnouncement() {
+      axios.post(`/api/groups/${this.selectedGroup.id}/announce/`, this.announceForm, { headers: { 'X-CSRFToken': this.getCSRFToken() } })
+        .then(() => { this.$message.success("Announcement posted!"); this.announceDialogVisible = false; });
+    },
+    exportCSV(group) {
+      window.location.href = `/api/groups/${group.id}/export-members/`;
+    },
+    openStats() {
+      axios.get(`/api/groups/stats/`).then(res => { this.stats = res.data; this.statsVisible = true; });
+    }
+  }
+});
+</script>
+{% endblock %}
