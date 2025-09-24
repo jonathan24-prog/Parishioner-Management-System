@@ -4,14 +4,14 @@
 <div id="group-management-app" class="container py-6">
   <h2 class="mb-6 text-center font-bold" style="font-size: 2.2rem; color: #ce7659;">
     Group Management
-  </h2>
+  </h2> 
 
 {% verbatim %}
   <el-row :gutter="24">
     <!-- Toolbar -->
     <el-col :span="24" class="flex justify-between items-center mb-4">
       <el-input v-model="search" placeholder="Search groups..." size="small" prefix-icon="el-icon-search" style="max-width: 240px;"></el-input>
-      <el-button type="primary" icon="el-icon-plus" @click="openCreateModal" size="medium">Create Group</el-button>
+      <el-button type="primary" icon="el-icon-plus" @click="openCreateModal" size="medium">Create a Group</el-button>
     </el-col>
     <!-- Create/Edit Group Modal -->
   <el-dialog :visible.sync="groupDialogVisible" width="45%" :title="editMode ? 'Edit Group' : 'Create Group'" class="rounded-xl">
@@ -146,7 +146,7 @@
     </el-form>
     <template #footer>
       <el-button @click="announceDialogVisible = false">Cancel</el-button>
-      <el-button type="primary" icon="el-icon-message" @click="sendAnnouncement">Send</el-button>
+      <el-button type="primary" icon="el-icon-message" @click="sendAnnouncement">Send announcement</el-button>
     </template>
   </el-dialog>
 
