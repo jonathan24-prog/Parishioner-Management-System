@@ -263,17 +263,17 @@ def attendance_scan_view(request):
     return render(request, 'attendance.html')
 
 
-
 def attendance_history(request):
-    attendance_records = Attendance.objects.select_related('parishioner__user').order_by('-date')
-
-    morning_mass = attendance_records.filter(mass_type="Morning", event__isnull=True)
-    afternoon_mass = attendance_records.filter(mass_type="Afternoon", event__isnull=True)
-    evening_mass = attendance_records.filter(mass_type="Evening", event__isnull=True)
-    event_attendance = attendance_records.filter(event__isnull=False)
+    # Get all attendance records sorted by newest date first
+    attendance_records = Attendance.objects.select_related(
+        'parishioner__user', 'event'
+    ).order_by('-date')
 
     all_parishioners = Parishioner.objects.select_related('user').all()
-    
+
+    absentee_summary = []
+
+    # Unique Mass dates
     unique_mass_dates = (
         Attendance.objects
         .filter(event__isnull=True)
@@ -281,15 +281,13 @@ def attendance_history(request):
         .distinct()
     )
 
-    absentee_summary = []
-
-    # Process mass-based attendance (check if attended ANY time on that date)
+    # Process Mass-based attendance
     for mass_date in unique_mass_dates:
         for parishioner in all_parishioners:
             was_present = Attendance.objects.filter(
                 parishioner=parishioner,
                 date=mass_date,
-                event__isnull=True  # Mass-only attendance
+                event__isnull=True
             ).exists()
 
             if not was_present:
@@ -299,7 +297,7 @@ def attendance_history(request):
                     'type': "Sunday Mass"
                 })
 
-    # Process event-based attendance (strictly per event)
+    # Process Event-based attendance
     unique_events = Attendance.objects.filter(event__isnull=False).values('date', 'event').distinct()
 
     for entry in unique_events:
@@ -321,13 +319,22 @@ def attendance_history(request):
                     'type': f"Event: {event_obj.name}"
                 })
 
+    # ✅ Add "type" column in attendance records (Mass type or Event name)
+    attendance_data = []
+    for record in attendance_records:
+        attendance_data.append({
+            'name': f"{record.parishioner.user.first_name} {record.parishioner.user.last_name}",
+            'date': record.date,
+            'time': record.time,
+            'status': record.status,
+            'type': record.event.name if record.event else f"{record.mass_type} Mass"
+        })
+
     return render(request, 'faithlink/attendance_history.html', {
-        'morning_mass': morning_mass,
-        'afternoon_mass': afternoon_mass,
-        'evening_mass': evening_mass,
-        'event_attendance': event_attendance,
+        'attendance_data': attendance_data,
         'absentee_summary': absentee_summary
     })
+
 
 from django.http import JsonResponse
 from django.db.models import Count
