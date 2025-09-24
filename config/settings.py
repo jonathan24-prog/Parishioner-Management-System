@@ -138,6 +138,17 @@ TIME_ZONE = 'Asia/Manila'  # or your actual local timezone
 USE_TZ = True
 
 
+import environ
+
+env = environ.Env()
+environ.Env.read_env()
+
+PAYMONGO_SECRET_KEY = env("PAYMONGO_SECRET_KEY", default="dummy_key")
+PAYPAL_CLIENT_ID = env("PAYPAL_CLIENT_ID", default="dummy_client")
+PAYPAL_SECRET = env("PAYPAL_SECRET", default="dummy_secret")
+
+
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 

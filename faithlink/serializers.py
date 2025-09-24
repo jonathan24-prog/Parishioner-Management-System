@@ -57,17 +57,25 @@ class GroupEventSerializer(serializers.ModelSerializer):
 class GroupSerializer(serializers.ModelSerializer):
     leader = ParishionerBriefSerializer(read_only=True)
     leader_id = serializers.PrimaryKeyRelatedField(
-        queryset=Parishioner.objects.all(), write_only=True, allow_null=True, required=False, source='leader'
+        queryset=Parishioner.objects.all(),
+        write_only=True,
+        allow_null=True,
+        required=False,
+        source='leader'
     )
     members_count = serializers.IntegerField(read_only=True)
     # user-context fields
     is_member = serializers.SerializerMethodField()
     request_pending = serializers.SerializerMethodField()
+    pending_requests_count = serializers.SerializerMethodField()  # NEW
 
     class Meta:
         model = Group
-        fields = ['id', 'name', 'description', 'type', 'leader', 'leader_id',
-                  'created_at', 'active', 'members_count', 'is_member', 'request_pending']
+        fields = [
+            'id', 'name', 'description', 'type', 'leader', 'leader_id',
+            'created_at', 'active', 'members_count', 'is_member',
+            'request_pending', 'pending_requests_count'  # NEW
+        ]
 
     def get_is_member(self, obj):
         request = self.context.get('request')
@@ -88,6 +96,14 @@ class GroupSerializer(serializers.ModelSerializer):
         except Parishioner.DoesNotExist:
             return False
         return Membership.objects.filter(group=obj, parishioner=parish, status='PENDING').exists()
+
+    def get_pending_requests_count(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return 0
+        if request.user.is_staff or (obj.leader and obj.leader.user == request.user):
+            return Membership.objects.filter(group=obj, status='PENDING').count()
+        return 0
 
 
 class ParishionerSerializer(serializers.ModelSerializer):
@@ -129,12 +145,13 @@ class DonorSerializer(serializers.ModelSerializer):
 
 class DonationSerializer(serializers.ModelSerializer):
     donor_name = serializers.SerializerMethodField(read_only=True)
+    payment_method_display = serializers.SerializerMethodField(read_only=True)  # ✅ new
 
     class Meta:
         model = Donation
         fields = '__all__'
         extra_kwargs = {
-            'donor': {'read_only': True},  # <--- This ensures donor isn't required in POST
+            'donor': {'read_only': True},
             'received': {'read_only': True},
         }
 
@@ -143,6 +160,8 @@ class DonationSerializer(serializers.ModelSerializer):
             return "Anonymous"
         return f"{obj.donor.user.first_name} {obj.donor.user.last_name}"
 
+    def get_payment_method_display(self, obj):
+        return obj.get_payment_method_display() if obj.payment_method else None
 
 
 

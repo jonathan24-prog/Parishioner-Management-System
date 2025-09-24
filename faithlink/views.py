@@ -587,6 +587,12 @@ def _is_group_admin(user, group: Group):
         group=group, parishioner=parish, role='LEADER', status='APPROVED'
     ).exists()
 
+def _get_parishioner_or_none(user):
+    try:
+        return Parishioner.objects.get(user=user)
+    except Parishioner.DoesNotExist:
+        return None
+
 class GroupViewSet(viewsets.ModelViewSet):
     queryset = Group.objects.all().annotate(
         members_count=Count('membership', filter=Q(membership__status='APPROVED'))
@@ -646,64 +652,86 @@ class GroupViewSet(viewsets.ModelViewSet):
     @action(methods=['post'], detail=True, url_path='assign')
     def assign(self, request, pk=None):
         group = self.get_object()
-        if not _is_group_admin(request.user, group):
-            return Response({'detail': 'Not allowed.'}, status=403)
         member_ids = request.data.get('members', [])
+        added_count = 0
+
         for pid in member_ids:
-            membership, _ = Membership.objects.get_or_create(group=group, parishioner_id=pid)
-            membership.status = 'APPROVED'
-            membership.role = membership.role or 'MEMBER'
-            membership.approved_at = tz_now()
-            membership.save()
-        ActivityLog.objects.create(group=group, actor=_get_parishioner(request.user), action='Assign Members', details=f'Assigned {len(member_ids)} members')
-        return Response({'detail': 'Members assigned.'})
+            membership, created = Membership.objects.get_or_create(group=group, parishioner_id=pid)
+            if created or membership.status != 'APPROVED':
+                membership.status = 'APPROVED'
+                membership.role = membership.role or 'MEMBER'
+                membership.approved_at = tz_now()
+                membership.save()
+                added_count += 1
+
+        ActivityLog.objects.create(
+            group=group,
+            actor=_get_parishioner_or_none(request.user),
+            action='Assign Members',
+            details=f'Assigned {added_count} members'
+        )
+        return Response({'detail': f'{added_count} members assigned.'})
 
     @action(methods=['post'], detail=True, url_path='approve')
     def approve(self, request, pk=None):
         group = self.get_object()
-        if not _is_group_admin(request.user, group):
-            return Response({'detail': 'Not allowed.'}, status=403)
         membership_id = request.data.get('membership_id')
         try:
             m = Membership.objects.get(id=membership_id, group=group)
         except Membership.DoesNotExist:
             return Response({'detail': 'Membership not found.'}, status=404)
+
         m.status = 'APPROVED'
         m.approved_at = tz_now()
         m.save()
-        ActivityLog.objects.create(group=group, actor=_get_parishioner(request.user), action='Approve Member', details=f'Approved {m.parishioner}')
+
+        ActivityLog.objects.create(
+            group=group,
+            actor=_get_parishioner_or_none(request.user),
+            action='Approve Member',
+            details=f'Approved {m.parishioner}'
+        )
         return Response({'detail': 'Member approved.'})
 
     @action(methods=['post'], detail=True, url_path='reject')
     def reject(self, request, pk=None):
         group = self.get_object()
-        if not _is_group_admin(request.user, group):
-            return Response({'detail': 'Not allowed.'}, status=403)
         membership_id = request.data.get('membership_id')
         try:
             m = Membership.objects.get(id=membership_id, group=group)
         except Membership.DoesNotExist:
             return Response({'detail': 'Membership not found.'}, status=404)
+
         m.status = 'REJECTED'
         m.save()
-        ActivityLog.objects.create(group=group, actor=_get_parishioner(request.user), action='Reject Member', details=f'Rejected {m.parishioner}')
+
+        ActivityLog.objects.create(
+            group=group,
+            actor=_get_parishioner_or_none(request.user),
+            action='Reject Member',
+            details=f'Rejected {m.parishioner}'
+        )
         return Response({'detail': 'Member rejected.'})
 
     @action(methods=['post'], detail=True, url_path='set-leader')
     def set_leader(self, request, pk=None):
         group = self.get_object()
-        if not _is_group_admin(request.user, group):
-            return Response({'detail': 'Not allowed.'}, status=403)
         leader_id = request.data.get('leader_id')
         group.leader_id = leader_id
         group.save()
-        # also mark membership as leader/approved
+
         m, _ = Membership.objects.get_or_create(group=group, parishioner_id=leader_id)
         m.role = 'LEADER'
         m.status = 'APPROVED'
         m.approved_at = tz_now()
         m.save()
-        ActivityLog.objects.create(group=group, actor=_get_parishioner(request.user), action='Set Leader', details=f'Leader set to parishioner #{leader_id}')
+
+        ActivityLog.objects.create(
+            group=group,
+            actor=_get_parishioner_or_none(request.user),
+            action='Set Leader',
+            details=f'Leader set to parishioner #{leader_id}'
+        )
         return Response({'detail': 'Leader assigned.'})
 
     @action(methods=['get'], detail=True, url_path='pending')
@@ -725,33 +753,18 @@ class GroupViewSet(viewsets.ModelViewSet):
     @action(methods=['post'], detail=True, url_path='announce')
     def announce(self, request, pk=None):
         group = self.get_object()
-        if not _is_group_admin(request.user, group):
-            return Response({'detail': 'Not allowed.'}, status=403)
-
-        # Try to get parishioner; allow None for admin users
-        try:
-            parish = _get_parishioner(request.user)
-        except Parishioner.DoesNotExist:
-            parish = None
-
+        parish = _get_parishioner_or_none(request.user)
         ser = AnnouncementSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
 
-        # Allow created_by to be null for admins
-        ann = Announcement.objects.create(
-            group=group,
-            created_by=parish,
-            **ser.validated_data
-        )
+        ann = Announcement.objects.create(group=group, created_by=parish, **ser.validated_data)
 
-        # Activity log (actor can also be None)
         ActivityLog.objects.create(
             group=group,
             actor=parish,
             action='Announcement',
             details=ann.title
         )
-
         return Response(AnnouncementSerializer(ann).data, status=201)
 
 
@@ -760,16 +773,22 @@ class GroupViewSet(viewsets.ModelViewSet):
         group = self.get_object()
         anns = group.announcements.order_by('-created_at')[:50]
         return Response(AnnouncementSerializer(anns, many=True).data)
-
+    
     @action(methods=['post'], detail=True, url_path='events')
     def create_event(self, request, pk=None):
         group = self.get_object()
-        if not _is_group_admin(request.user, group):
-            return Response({'detail': 'Not allowed.'}, status=403)
+        parish = _get_parishioner_or_none(request.user)
         ser = GroupEventSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
+
         evt = GroupEvent.objects.create(group=group, **ser.validated_data)
-        ActivityLog.objects.create(group=group, actor=_get_parishioner(request.user), action='Create Event', details=evt.title)
+
+        ActivityLog.objects.create(
+            group=group,
+            actor=parish,
+            action='Create Event',
+            details=evt.title
+        )
         return Response(GroupEventSerializer(evt).data, status=201)
 
     @action(methods=['get'], detail=True, url_path='events')
@@ -818,7 +837,24 @@ class GroupViewSet(viewsets.ModelViewSet):
             name = f"{nm} {ln}".strip() or m.parishioner.name
             writer.writerow([m.parishioner.parishioner_id, name, m.role, m.approved_at])
         return response
+   
+    @action(methods=['delete'], detail=True, url_path='members/(?P<member_id>[^/.]+)')
+    def remove_member(self, request, pk=None, member_id=None):
+        group = self.get_object()
+        try:
+            membership = Membership.objects.get(group=group, parishioner_id=member_id, status='APPROVED')
+        except Membership.DoesNotExist:
+            return Response({'detail': 'Member not found in this group.'}, status=404)
 
+        membership.delete()
+
+        ActivityLog.objects.create(
+            group=group,
+            actor=_get_parishioner_or_none(request.user),
+            action='Remove Member',
+            details=f'Removed parishioner #{member_id}'
+        )
+        return Response({'detail': 'Member removed from the group.'}, status=200)
 
 class CustomUserViewSet(viewsets.ModelViewSet):
     queryset = CustomUser.objects.filter(is_parishioner=False, is_superuser=False)
@@ -889,6 +925,7 @@ class EventViewSet(viewsets.ModelViewSet):
 #         serializer.save(donor=parishioner)
 # from rest_framework import serializers
 
+from .payments import create_paymongo_payment, create_paypal_order
 
 class DonationViewSet(viewsets.ModelViewSet):
     queryset = Donation.objects.select_related('donor').all().order_by('-date')
@@ -897,20 +934,28 @@ class DonationViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         user = self.request.user
-        try:
-            # Try to auto-link parishioner based on current user
-            parishioner = Parishioner.objects.get(user=user)
-            serializer.save(donor=parishioner)
-        except Parishioner.DoesNotExist:
-            # Fall back to manually specified donor (e.g., for admin use)
-            donor_id = self.request.data.get('donor')
-            if not donor_id:
-                raise serializers.ValidationError("Donor must be specified.")
-            try:
-                parishioner = Parishioner.objects.get(id=donor_id)
-            except Parishioner.DoesNotExist:
-                raise serializers.ValidationError("Selected donor is invalid.")
-            serializer.save(donor=parishioner)
+        parishioner = Parishioner.objects.get(user=user)
+        donation = serializer.save(donor=parishioner, status="pending")
+
+        # If money donation → trigger payment
+        if donation.type == "money":
+            if donation.payment_method == "gcash":
+                resp = create_paymongo_payment(donation.amount, "Donation via GCash", "gcash")
+                donation.transaction_id = resp["data"]["id"]
+                donation.save()
+                self.payment_url = resp["data"]["attributes"]["checkout_url"]
+
+            elif donation.payment_method == "paypal":
+                resp = create_paypal_order(donation.amount, "Donation via PayPal")
+                donation.transaction_id = resp["id"]
+                donation.save()
+                self.payment_url = [link["href"] for link in resp["links"] if link["rel"] == "approve"][0]
+
+    def create(self, request, *args, **kwargs):
+        response = super().create(request, *args, **kwargs)
+        if hasattr(self, "payment_url"):
+            response.data["payment_url"] = self.payment_url
+        return response
 
 
 

@@ -36,7 +36,7 @@
         <v-client-table :columns="campaignColumns" :data="campaigns">
           <template slot="action" slot-scope="props">
             <el-button size="small" type="primary" @click="editCampaign(props.row)">Edit</el-button>
-            <el-button size="small" type="danger" @click="deleteCampaign(props.row.id)">Delete</el-button>
+            <!-- <el-button size="small" type="danger" @click="deleteCampaign(props.row.id)">Delete</el-button> -->
           </template>
         </v-client-table>
       </el-card>

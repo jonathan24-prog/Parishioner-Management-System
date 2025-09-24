@@ -149,6 +149,8 @@
       </div>
   </div>
 
+  {% if request.user.is_superuser %}
+
   <!-- ================== ATTENDANCE INSIGHTS ================== -->
   <h4 class="fw-bold mt-5 mb-3">📈 Attendance Insights</h4>
   
@@ -244,7 +246,7 @@
           </div>
       </div>
   </div>
-
+{% endif %}
 </div>
 {% endblock %}
 

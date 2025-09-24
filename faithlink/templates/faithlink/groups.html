@@ -1,59 +1,85 @@
 {% extends 'faithlink/basemenu.html' %}
 
 {% block content %}
-<div id="group-management-app" class="container py-5">
-  <h2 class="mb-4 text-center" style="font-size: 2.2rem; color: #ce7659;">Manage Groups</h2>
+<div id="group-management-app" class="container py-6">
+  <h2 class="mb-6 text-center font-bold" style="font-size: 2.2rem; color: #ce7659;">
+    Group Management
+  </h2>
 
-  <el-row :gutter="20">
-    <!-- Create/Edit Group -->
-    <el-col :md="10" :xs="24">
-      <el-card class="shadow-lg p-4 rounded-2xl">
-        <h4 style="margin-bottom: 20px;">{% if editMode %}Update{% else %}Add Group{% endif %}
-</h4>
-        <el-form @submit.native.prevent="saveGroup" :model="form" label-position="top">
-          <el-form-item label="Group Name">
-            <el-input v-model="form.name" placeholder="Enter group name"></el-input>
-          </el-form-item>
-          <el-form-item label="Type">
-            <el-select v-model="form.type" placeholder="Select type">
-              <el-option v-for="t in groupTypes" :key="t" :label="t" :value="t"></el-option>
-            </el-select>
-          </el-form-item>
-          <el-form-item label="Description">
-            <el-input type="textarea" v-model="form.description" placeholder="Describe the group" autosize></el-input>
-          </el-form-item>
-          <el-form-item label="Leader (optional)">
-            <el-select v-model="form.leader_id" filterable clearable placeholder="Select leader">
-              <el-option v-for="p in parishioners" :key="p.id" :label="p.name" :value="p.id"></el-option>
-            </el-select>
-          </el-form-item>
-          <el-button type="success" icon="el-icon-check" @click="saveGroup">{{ scope.row.requested_at|date:"Y-m-d H:i" }}
-</el-button>
-          <el-button v-if="editMode" @click="resetForm">Cancel</el-button>
-        </el-form>
-      </el-card>
+{% verbatim %}
+  <el-row :gutter="24">
+    <!-- Toolbar -->
+    <el-col :span="24" class="flex justify-between items-center mb-4">
+      <el-input v-model="search" placeholder="Search groups..." size="small" prefix-icon="el-icon-search" style="max-width: 240px;"></el-input>
+      <el-button type="primary" icon="el-icon-plus" @click="openCreateModal" size="medium">Create Group</el-button>
     </el-col>
+    <!-- Create/Edit Group Modal -->
+  <el-dialog :visible.sync="groupDialogVisible" width="45%" :title="editMode ? 'Edit Group' : 'Create Group'" class="rounded-xl">
+    <el-form :model="form" label-position="top" size="medium">
+      <el-form-item label="Group Name">
+        <el-input v-model="form.name" placeholder="Enter group name" clearable></el-input>
+      </el-form-item>
 
-    <!-- Groups Table -->
-    <el-col :md="14" :xs="24">
-      <el-card class="shadow-lg rounded-2xl">
-        <div class="flex items-center justify-between mb-2">
-          <h4>Existing Groups</h4>
-          <el-button type="info" icon="el-icon-data-analysis" @click="openStats">Stats</el-button>
-        </div>
+      <el-form-item label="Group Type">
+        <el-select v-model="form.type" placeholder="Select type" clearable filterable>
+          <el-option v-for="t in groupTypes" :key="t" :label="t" :value="t"></el-option>
+        </el-select>
+      </el-form-item>
 
-        <el-table v-loading="loading" :data="groups" style="width: 100%;" empty-text="No groups yet." size="small" border>
-          <el-table-column prop="name" label="Group Name"></el-table-column>
-          <el-table-column prop="type" label="Type" width="150"></el-table-column>
-          <el-table-column prop="members_count" label="Members" width="120"></el-table-column>
-          <el-table-column label="Actions" width="420">
+      <el-form-item label="Description">
+        <el-input type="textarea" v-model="form.description" placeholder="Short description" autosize></el-input>
+      </el-form-item>
+
+      <el-form-item label="Leader (optional)">
+        <el-select v-model="form.leader_id" filterable clearable placeholder="Select leader">
+          <el-option v-for="p in parishioners" :key="p.id" :label="p.name" :value="p.id"></el-option>
+        </el-select>
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="groupDialogVisible = false">Cancel</el-button>
+      <el-button type="primary" icon="el-icon-check" @click="saveGroup">{{ editMode ? 'Save Changes' : 'Create Group' }}</el-button>
+    </template>
+  </el-dialog>
+
+   <!-- Groups List -->
+    <el-col :span="24">
+      <el-card shadow="hover" class="rounded-2xl">
+        <el-table
+          v-loading="loading"
+          :data="filteredGroups"
+          style="width: 100%;"
+          empty-text="No groups available."
+          size="medium"
+          border
+          stripe>
+          
+          <el-table-column prop="name" label="Group Name" min-width="180"></el-table-column>
+          <el-table-column prop="type" label="Type" width="140"></el-table-column>
+          <el-table-column prop="members_count" label="Members" width="110" align="center"></el-table-column>
+
+          <el-table-column label="Actions" min-width="360" fixed="right">
             <template #default="scope">
-              <el-button size="mini" type="primary" @click="startEdit(scope.row)">Edit</el-button>
-              <el-button size="mini" type="danger" @click="deleteGroup(scope.row)">Delete</el-button>
-              <el-button size="mini" type="success" @click="openAssignModal(scope.row)">Add Members</el-button>
-              <el-button size="mini" @click="openPending(scope.row)">Approve Requests</el-button>
-              <el-button size="mini" @click="openAnnounce(scope.row)">Announce</el-button>
-              <el-button size="mini" @click="exportCSV(scope.row)">Export</el-button>
+              <el-button size="mini" type="primary" icon="el-icon-edit" @click="startEdit(scope.row)" plain>Edit</el-button>
+              <el-button size="mini" type="danger" icon="el-icon-delete" @click="deleteGroup(scope.row)" plain>Delete</el-button>
+
+              <el-divider direction="vertical"></el-divider>
+
+              <el-button size="mini" type="success" icon="el-icon-plus" @click="openAssignModal(scope.row)" plain>Add Members</el-button>
+              <el-button size="mini" type="info" icon="el-icon-user" @click="openMembers(scope.row)" plain>Members</el-button>
+
+              <el-divider direction="vertical"></el-divider>
+
+              <el-badge :value="scope.row.pending_requests_count" v-if="scope.row.pending_requests_count > 0" class="mr-2">
+                <el-button size="mini" type="warning" icon="el-icon-bell" @click="openPending(scope.row)" plain>Requests</el-button>
+              </el-badge>
+              <el-button v-else size="mini" type="default" icon="el-icon-bell" @click="openPending(scope.row)" plain>Requests</el-button>
+
+              <el-divider direction="vertical"></el-divider>
+
+              <el-button size="mini" icon="el-icon-message" @click="openAnnounce(scope.row)" plain>Announce</el-button>
+              <el-button size="mini" type="primary" icon="el-icon-document" @click="viewAnnouncements(scope.row)" plain>History</el-button>
+              <el-button size="mini" icon="el-icon-download" @click="exportCSV(scope.row)" plain>Export</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -61,63 +87,83 @@
     </el-col>
   </el-row>
 
+
   <!-- Assign Members Modal -->
-  <el-dialog :visible.sync="assignDialogVisible" width="50%" title="Assign Members">
-    <p><b>Group:</b> {{ selectedGroup.name|default:"No Group Selected" }}
-</p>
+  <el-dialog :visible.sync="assignDialogVisible" width="45%" title="Assign Members" class="rounded-xl">
+    <p class="mb-2"><b>Group:</b> {{ selectedGroup ? selectedGroup.name : 'No Group Selected' }}</p>
     <el-select v-model="selectedMembers" multiple filterable placeholder="Select parishioners" style="width: 100%;">
       <el-option v-for="p in parishioners" :key="p.id" :label="p.name" :value="p.id"></el-option>
     </el-select>
-    <span slot="footer" class="dialog-footer">
+    <template #footer>
       <el-button @click="assignDialogVisible = false">Cancel</el-button>
-      <el-button type="primary" @click="assignMembers">Assign</el-button>
-    </span>
+      <el-button type="primary" icon="el-icon-check" @click="assignMembers">Assign</el-button>
+    </template>
+  </el-dialog>
+
+  <!-- Members Modal -->
+  <el-dialog :visible.sync="membersDialogVisible" width="60%" title="Group Members" class="rounded-xl">
+    <p class="mb-2"><b>Group:</b> {{ selectedGroup ? selectedGroup.name : 'No Group Selected' }}</p>
+    <el-table :data="approvedMembers" border stripe>
+      <el-table-column prop="parishioner.name" label="Name"></el-table-column>
+      <el-table-column prop="role" label="Role" width="140"></el-table-column>
+      <el-table-column prop="approved_at" label="Approved At" width="220">
+        <template #default="scope">
+          {{ formatDate(scope.row.approved_at) }}
+        </template>
+      </el-table-column>
+      <el-table-column label="Actions" width="160">
+        <template #default="scope">
+          <el-button size="mini" type="danger" icon="el-icon-remove-outline" @click="removeMember(scope.row)">Remove</el-button>
+        </template>
+      </el-table-column>
+    </el-table>
   </el-dialog>
 
   <!-- Pending Requests -->
-  <el-dialog :visible.sync="pendingDialogVisible" width="60%" title="Pending Join Requests">
-    <p><b>Group:</b> {{ selectedGroup.name|default:"No Group Selected" }}
-</p>
-    <el-table :data="pendingMembers" border>
+  <el-dialog :visible.sync="pendingDialogVisible" width="60%" title="Pending Join Requests" class="rounded-xl">
+    <p class="mb-2"><b>Group:</b> {{ selectedGroup ? selectedGroup.name : 'No Group Selected' }}</p>
+    <el-table :data="pendingMembers" border stripe>
       <el-table-column prop="parishioner.name" label="Name"></el-table-column>
       <el-table-column prop="requested_at" label="Requested At" width="220">
-        <template #default="scope">{{ scope.row.requested_at|date:"Y-m-d H:i" }}
-</template>
+        <template #default="scope">
+          {{ formatDate(scope.row.requested_at) }}
+        </template>
       </el-table-column>
       <el-table-column label="Actions" width="220">
         <template #default="scope">
-          <el-button size="mini" type="success" @click="approve(scope.row)">Approve</el-button>
-          <el-button size="mini" type="danger" @click="reject(scope.row)">Reject</el-button>
+          <el-button size="mini" type="success" icon="el-icon-check" @click="approve(scope.row)">Approve</el-button>
+          <el-button size="mini" type="danger" icon="el-icon-close" @click="reject(scope.row)">Reject</el-button>
         </template>
       </el-table-column>
     </el-table>
   </el-dialog>
 
   <!-- Announce -->
-  <el-dialog :visible.sync="announceDialogVisible" width="40%" title="Send Announcement">
+  <el-dialog :visible.sync="announceDialogVisible" width="40%" title="Send Announcement" class="rounded-xl">
     <el-form :model="announceForm" label-position="top">
-      <el-form-item label="Title"><el-input v-model="announceForm.title"></el-input></el-form-item>
-      <el-form-item label="Content"><el-input type="textarea" v-model="announceForm.content" autosize></el-input></el-form-item>
+      <el-form-item label="Title"><el-input v-model="announceForm.title" placeholder="Announcement title"></el-input></el-form-item>
+      <el-form-item label="Content"><el-input type="textarea" v-model="announceForm.content" placeholder="Enter your message..." autosize></el-input></el-form-item>
     </el-form>
-    <span slot="footer" class="dialog-footer">
+    <template #footer>
       <el-button @click="announceDialogVisible = false">Cancel</el-button>
-      <el-button type="primary" @click="sendAnnouncement">Send</el-button>
-    </span>
+      <el-button type="primary" icon="el-icon-message" @click="sendAnnouncement">Send</el-button>
+    </template>
   </el-dialog>
 
-  <!-- Stats -->
-  <el-drawer :visible.sync="statsVisible" title="Groups Statistics" size="40%">
-    <div v-if="stats">
-      <p><b>Total Groups:</b> {{ stats.total_groups }}</p>
-      <p><b>Total Memberships:</b> {{ stats.total_memberships }}</p>
-      <p><b>Active Groups:</b> {{ stats.active_groups }}</p>
-      <el-table :data="stats.per_group" size="small" border class="mt-2">
-        <el-table-column prop="name" label="Group"></el-table-column>
-        <el-table-column prop="type" label="Type" width="140"></el-table-column>
-        <el-table-column prop="members_count" label="Members" width="120"></el-table-column>
-      </el-table>
-    </div>
-  </el-drawer>
+  <!-- Recent Announcements Modal -->
+  <el-dialog :visible.sync="announcementsDialogVisible" width="60%" title="Recent Announcements" class="rounded-xl">
+    <p class="mb-2"><b>Group:</b> {{ selectedGroup ? selectedGroup.name : 'No Group Selected' }}</p>
+    <el-table :data="recentAnnouncements" border stripe>
+      <el-table-column prop="title" label="Title" width="200"></el-table-column>
+      <el-table-column prop="content" label="Content"></el-table-column>
+      <el-table-column prop="created_at" label="Date" width="220">
+        <template #default="scope">
+          {{ formatDate(scope.row.created_at) }}
+        </template>
+      </el-table-column>
+    </el-table>
+  </el-dialog>
+{% endverbatim %}
 </div>
 {% endblock %}
 
@@ -129,24 +175,30 @@ new Vue({
     return {
       form: { id: null, name: '', description: '', type: 'Other', leader_id: null },
       editMode: false,
-
+      groupDialogVisible: false, // NEW for modal visibility
       groups: [],
       parishioners: [],
       loading: false,
-
+      search: '',
       groupTypes: ['Choir', 'Youth Ministry', 'Bible Study', 'Ushering', 'Praise & Worship', 'Committee', 'Other'],
-
       assignDialogVisible: false,
+      membersDialogVisible: false,
       pendingDialogVisible: false,
       announceDialogVisible: false,
-      statsVisible: false,
-
+      announcementsDialogVisible: false,
       selectedGroup: null,
       selectedMembers: [],
+      approvedMembers: [],
       pendingMembers: [],
+      recentAnnouncements: [],
       announceForm: { title: '', content: '' },
-      stats: null,
     };
+  },
+  computed: {
+    filteredGroups() {
+      if (!this.search) return this.groups;
+      return this.groups.filter(g => g.name.toLowerCase().includes(this.search.toLowerCase()));
+    }
   },
   mounted() {
     this.fetchGroups();
@@ -164,25 +216,45 @@ new Vue({
     },
     formatDate(iso) {
       if (!iso) return '';
-      return new Date(iso).toLocaleString();
+      try { return new Date(iso).toLocaleString(); } catch(e) { return iso; }
     },
     fetchGroups() {
       this.loading = true;
-      axios.get('/api/groups/').then(res => { this.groups = res.data; }).finally(() => this.loading = false);
+      axios.get('/api/groups/')
+        .then(res => {
+          this.groups = res.data.map(g => ({
+            ...g,
+            pending_requests_count: Number(g.pending_requests_count || 0),
+          }));
+        })
+        .finally(() => this.loading = false);
     },
     fetchParishioners() {
       axios.get('/api/parishioners/').then(res => { this.parishioners = res.data; });
+    },
+    openCreateModal() {
+      this.resetForm();
+      this.groupDialogVisible = true;
     },
     resetForm() {
       this.form = { id: null, name: '', description: '', type: 'Other', leader_id: null };
       this.editMode = false;
     },
     startEdit(row) {
-      this.form = { id: row.id, name: row.name, description: row.description, type: row.type, leader_id: row.leader ? row.leader.id : null };
+      this.form = {
+        id: row.id,
+        name: row.name,
+        description: row.description,
+        type: row.type,
+        leader_id: row.leader ? row.leader.id : null
+      };
       this.editMode = true;
+      this.groupDialogVisible = true;
     },
     saveGroup() {
-      if (!this.form.name.trim()) { return this.$message.warning("Group name is required."); }
+      if (!this.form.name || !this.form.name.trim()) {
+        return this.$message.warning("Group name is required.");
+      }
       const headers = { 'X-CSRFToken': this.getCSRFToken() };
       if (this.editMode) {
         axios.put(`/api/groups/${this.form.id}/`, this.form, { headers })
@@ -191,9 +263,11 @@ new Vue({
               axios.post(`/api/groups/${this.form.id}/set-leader/`, { leader_id: this.form.leader_id }, { headers });
             }
             this.$message.success("Group updated!");
-            this.resetForm(); this.fetchGroups();
+            this.groupDialogVisible = false;
+            this.resetForm();
+            this.fetchGroups();
           })
-          .catch(() => this.$message.error("Failed to update group."));
+          .catch(err => this.$message.error(err.response?.data?.detail || "Failed to update group."));
       } else {
         axios.post(`/api/groups/`, this.form, { headers })
           .then(res => {
@@ -202,16 +276,18 @@ new Vue({
               axios.post(`/api/groups/${created.id}/set-leader/`, { leader_id: this.form.leader_id }, { headers });
             }
             this.$message.success("Group created!");
-            this.resetForm(); this.fetchGroups();
+            this.groupDialogVisible = false;
+            this.resetForm();
+            this.fetchGroups();
           })
-          .catch(() => this.$message.error("Failed to create group."));
+          .catch(err => this.$message.error(err.response?.data?.detail || "Failed to create group."));
       }
     },
     deleteGroup(row) {
       this.$confirm('Delete this group?', 'Warning', { type: 'warning' })
-      .then(() => axios.delete(`/api/groups/${row.id}/`, { headers: { 'X-CSRFToken': this.getCSRFToken() } }))
-      .then(() => { this.$message.success("Group deleted."); this.fetchGroups(); })
-      .catch(() => {});
+        .then(() => axios.delete(`/api/groups/${row.id}/`, { headers: { 'X-CSRFToken': this.getCSRFToken() } }))
+        .then(() => { this.$message.success("Group deleted."); this.fetchGroups(); })
+        .catch(() => {});
     },
     openAssignModal(group) {
       this.selectedGroup = group;
@@ -220,21 +296,83 @@ new Vue({
     },
     assignMembers() {
       axios.post(`/api/groups/${this.selectedGroup.id}/assign/`, { members: this.selectedMembers }, { headers: { 'X-CSRFToken': this.getCSRFToken() } })
-        .then(() => { this.$message.success("Members assigned!"); this.assignDialogVisible = false; this.fetchGroups(); })
-        .catch(() => this.$message.error("Failed to assign members."));
+        .then(res => {
+          this.$message.success(res.data.detail || "Members assigned!");
+          this.assignDialogVisible = false;
+          this.fetchGroups();
+        })
+        .catch(err => {
+          this.$message.error(err.response?.data?.detail || "Failed to assign members.");
+        });
+    },
+    openMembers(group) {
+      this.selectedGroup = group;
+      axios.get(`/api/groups/${group.id}/members/`)
+        .then(res => {
+          this.approvedMembers = res.data || [];
+          this.membersDialogVisible = true;
+        })
+        .catch(err => {
+          this.$message.error(err.response?.data?.detail || "Failed to load members.");
+        });
+    },
+    removeMember(membership) {
+      const parishionerId = membership?.parishioner?.id;
+      if (!parishionerId) {
+        return this.$message.error("Invalid member record.");
+      }
+      this.$confirm('Remove this member from the group?', 'Warning', { type: 'warning' })
+        .then(() => {
+          return axios.delete(`/api/groups/${this.selectedGroup.id}/members/${parishionerId}/`, {
+            headers: { 'X-CSRFToken': this.getCSRFToken() }
+          });
+        })
+        .then(() => {
+          this.$message.success("Member removed.");
+          return Promise.all([
+            axios.get(`/api/groups/${this.selectedGroup.id}/members/`),
+            axios.get('/api/groups/')
+          ]);
+        })
+        .then(([membersRes, groupsRes]) => {
+          this.approvedMembers = membersRes.data || [];
+          this.groups = (groupsRes.data || []).map(g => ({
+            ...g,
+            pending_requests_count: Number(g.pending_requests_count || 0),
+          }));
+        })
+        .catch(err => {
+          if (err && err !== 'cancel') {
+            this.$message.error(err.response?.data?.detail || "Failed to remove member.");
+          }
+        });
     },
     openPending(group) {
       this.selectedGroup = group;
-      axios.get(`/api/groups/${group.id}/pending/`).then(res => { this.pendingMembers = res.data; this.pendingDialogVisible = true; });
+      axios.get(`/api/groups/${group.id}/pending/`)
+        .then(res => { this.pendingMembers = res.data; this.pendingDialogVisible = true; })
+        .catch(err => this.$message.error(err.response?.data?.detail || "Failed to load pending requests."));
     },
     approve(membership) {
       axios.post(`/api/groups/${this.selectedGroup.id}/approve/`, { membership_id: membership.id }, { headers: { 'X-CSRFToken': this.getCSRFToken() } })
-        .then(() => { this.$message.success("Approved!"); this.openPending(this.selectedGroup); this.fetchGroups(); });
+        .then(() => {
+          this.$message.success("Approved!");
+          this.openPending(this.selectedGroup);
+          this.fetchGroups();
+        })
+        .catch(err => this.$message.error(err.response?.data?.detail || "Failed to approve."));
     },
     reject(membership) {
       axios.post(`/api/groups/${this.selectedGroup.id}/reject/`, { membership_id: membership.id }, { headers: { 'X-CSRFToken': this.getCSRFToken() } })
-        .then(() => { this.$message.success("Rejected."); this.openPending(this.selectedGroup); });
+        .then(() => {
+          this.$message.success("Rejected.");
+          this.openPending(this.selectedGroup);
+        })
+        .catch(err => this.$message.error(err.response?.data?.detail || "Failed to reject."));
     },
+
+
+    // Announcements
     openAnnounce(group) {
       this.selectedGroup = group;
       this.announceForm = { title: '', content: '' };
@@ -242,13 +380,24 @@ new Vue({
     },
     sendAnnouncement() {
       axios.post(`/api/groups/${this.selectedGroup.id}/announce/`, this.announceForm, { headers: { 'X-CSRFToken': this.getCSRFToken() } })
-        .then(() => { this.$message.success("Announcement posted!"); this.announceDialogVisible = false; });
+        .then(() => { this.$message.success("Announcement posted!"); this.announceDialogVisible = false; })
+        .catch(err => this.$message.error(err.response?.data?.detail || "Failed to post announcement."));
     },
+
+    // View Recent Announcements
+    viewAnnouncements(group) {
+      this.selectedGroup = group;
+      axios.get(`/api/groups/${group.id}/announcements/`)
+        .then(res => {
+          this.recentAnnouncements = res.data || [];
+          this.announcementsDialogVisible = true;
+        })
+        .catch(err => this.$message.error(err.response?.data?.detail || "Failed to load announcements."));
+    },
+
+    // Export CSV
     exportCSV(group) {
       window.location.href = `/api/groups/${group.id}/export-members/`;
-    },
-    openStats() {
-      axios.get(`/api/groups/stats/`).then(res => { this.stats = res.data; this.statsVisible = true; });
     }
   }
 });

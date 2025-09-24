@@ -12,6 +12,7 @@
     v-loading="loading"
     element-loading-text="Loading Your Sacramental Records..."
     v-if="records.length > 0"
+    class="shadow-sm rounded-1xl"
   >
     <el-table-column prop="sacrament" label="Sacrament" sortable></el-table-column>
     <el-table-column prop="date_received" label="Date Received" sortable></el-table-column>
