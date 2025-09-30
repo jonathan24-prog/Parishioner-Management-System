@@ -20,7 +20,6 @@
             <el-tag type="success" v-else>Received</el-tag>
 
             <el-button size="small" type="warning" @click="editDonation(props.row)">Edit</el-button>
-            <!-- <el-button size="small" type="danger" @click="deleteDonation(props.row.id)">Delete</el-button> -->
           </template>
         </v-client-table>
       </el-card>
@@ -36,7 +35,6 @@
         <v-client-table :columns="campaignColumns" :data="campaigns">
           <template slot="action" slot-scope="props">
             <el-button size="small" type="primary" @click="editCampaign(props.row)">Edit</el-button>
-            <!-- <el-button size="small" type="danger" @click="deleteCampaign(props.row.id)">Delete</el-button> -->
           </template>
         </v-client-table>
       </el-card>
@@ -69,9 +67,24 @@
         <el-input v-model.number="form.amount" placeholder="Enter amount"></el-input>
       </el-form-item>
 
+      <!-- Payment Method Dropdown with Logos -->
       <el-form-item label="Payment Method" v-if="form.type === 'money'">
-        <el-input v-model="form.payment_method" placeholder="e.g., Cash, GCash"></el-input>
-      </el-form-item>
+  <el-select v-model="form.payment_method" placeholder="Select payment method">
+    <el-option
+      v-for="method in paymentMethods"
+      :key="method.value"
+      :value="method.value"
+      :label="method.label">
+      <div style="display: flex; justify-content: center; align-items: center;">
+        <img 
+          :src="method.logo" 
+          style="width: 80px; height: 30px; object-fit: contain; border: none; border-radius: 4px;" />
+      </div>
+    </el-option>
+  </el-select>
+</el-form-item>
+
+
 
       <el-form-item label="Item Name" v-if="form.type === 'item'">
         <el-input v-model="form.item_name" placeholder="e.g., Projector, Chair"></el-input>
@@ -171,7 +184,14 @@
           title: '',
           goal_amount: '',
           description: ''
-        }
+        },
+        paymentMethods: [
+          { label: 'GCash', value: 'GCash', logo: '/static/faithlink/images/gcash.png' },
+          { label: 'Paypal', value: 'Paypal', logo: '/static/faithlink/images/paypal.png' },
+          { label: 'Bank Account', value: 'Bank Account', logo: '/static/faithlink/images/bank.png' },
+          { label: 'Cash', value: 'Cash', logo: '/static/faithlink/images/cash.png' }
+        ]
+
       };
     },
     methods: {
