@@ -349,6 +349,10 @@ from django.db.models import Count
 from django.utils.timezone import now
 
 from .models import Attendance, Parishioner
+from django.http import JsonResponse
+from django.utils.timezone import now
+from django.db.models import Count
+from datetime import datetime
 
 def attendance_summary(request):
     filter_type = request.GET.get("filter", "today")   # all | today | month | date
@@ -363,7 +367,7 @@ def attendance_summary(request):
         queryset = queryset.filter(date=today)
     elif filter_type == "month" and month:
         try:
-            month_date = datetime.datetime.strptime(month, "%Y-%m")
+            month_date = datetime.strptime(month, "%Y-%m")
             queryset = queryset.filter(
                 date__year=month_date.year, date__month=month_date.month
             )
@@ -371,7 +375,7 @@ def attendance_summary(request):
             pass
     elif filter_type == "date" and date:
         try:
-            specific_date = datetime.datetime.strptime(date, "%Y-%m-%d").date()
+            specific_date = datetime.strptime(date, "%Y-%m-%d").date()
             queryset = queryset.filter(date=specific_date)
         except ValueError:
             pass
@@ -932,38 +936,68 @@ class EventViewSet(viewsets.ModelViewSet):
 #         serializer.save(donor=parishioner)
 # from rest_framework import serializers
 
-from .payments import create_paymongo_payment, create_paypal_order
-
 class DonationViewSet(viewsets.ModelViewSet):
     queryset = Donation.objects.select_related('donor').all().order_by('-date')
     serializer_class = DonationSerializer
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
+        donor_id = self.request.data.get('donor')
         user = self.request.user
-        parishioner = Parishioner.objects.get(user=user)
-        donation = serializer.save(donor=parishioner, status="pending")
+        parishioner = Parishioner.objects.get(id=donor_id)
+        serializer.save(donor=parishioner, status="pending")
 
-        # If money donation → trigger payment
-        if donation.type == "money":
-            if donation.payment_method == "gcash":
-                resp = create_paymongo_payment(donation.amount, "Donation via GCash", "gcash")
-                donation.transaction_id = resp["data"]["id"]
-                donation.save()
-                self.payment_url = resp["data"]["attributes"]["checkout_url"]
 
-            elif donation.payment_method == "paypal":
-                resp = create_paypal_order(donation.amount, "Donation via PayPal")
-                donation.transaction_id = resp["id"]
-                donation.save()
-                self.payment_url = [link["href"] for link in resp["links"] if link["rel"] == "approve"][0]
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from django.db.models import Sum, Count
+from datetime import datetime
+from .models import Donation, FundraisingCampaign
 
-    def create(self, request, *args, **kwargs):
-        response = super().create(request, *args, **kwargs)
-        if hasattr(self, "payment_url"):
-            response.data["payment_url"] = self.payment_url
-        return response
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def financial_summary(request):
+    filter_type = request.GET.get('filter', 'all')
+    date_str = request.GET.get('date')
+    month_str = request.GET.get('month')
 
+    donations = Donation.objects.all()
+    campaigns = FundraisingCampaign.objects.all()
+
+    # Apply filters
+    if filter_type == 'date' and date_str:
+        donations = donations.filter(date=date_str)
+    elif filter_type == 'month' and month_str:
+        year, month = map(int, month_str.split('-'))
+        donations = donations.filter(date__year=year, date__month=month)
+
+    total_donations = donations.count()
+    total_donors = donations.values('donor').distinct().count()
+    total_campaigns = campaigns.count()
+    total_raised = donations.filter(type='money').aggregate(total=Sum('amount'))['total'] or 0
+
+    donations_by_type = {
+        'money': donations.filter(type='money').aggregate(total=Sum('amount'))['total'] or 0,
+        'item': donations.filter(type='item').count()
+    }
+
+    campaigns_progress = [
+        {
+            'title': c.title,
+            'goal_amount': float(c.goal_amount),
+            'raised_amount': float(c.raised_amount)
+        } for c in campaigns
+    ]
+
+    return Response({
+        "total_donations": total_donations,
+        "total_donors": total_donors,
+        "total_campaigns": total_campaigns,
+        "total_raised": total_raised,
+        "donations_by_type": donations_by_type,
+        "campaigns_progress": campaigns_progress
+    })
 
 
 from rest_framework.decorators import api_view, permission_classes

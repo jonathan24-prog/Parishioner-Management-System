@@ -145,8 +145,6 @@ class DonorSerializer(serializers.ModelSerializer):
 
 class DonationSerializer(serializers.ModelSerializer):
     donor_name = serializers.SerializerMethodField(read_only=True)
-    payment_method_display = serializers.SerializerMethodField(read_only=True)  # ✅ new
-
     class Meta:
         model = Donation
         fields = '__all__'
@@ -160,8 +158,6 @@ class DonationSerializer(serializers.ModelSerializer):
             return "Anonymous"
         return f"{obj.donor.user.first_name} {obj.donor.user.last_name}"
 
-    def get_payment_method_display(self, obj):
-        return obj.get_payment_method_display() if obj.payment_method else None
 
 
 

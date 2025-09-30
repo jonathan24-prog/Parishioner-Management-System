@@ -274,17 +274,13 @@ class Donation(models.Model):
         ('item', 'Item'),
     ]
 
-    PAYMENT_METHOD_CHOICES = [
-        ('cash', 'Cash'),
-        ('gcash', 'GCash'),
-        ('bank_transfer', 'Bank Transfer'),
-        ('paypal', 'PayPal'),
-    ]
-
     donor = models.ForeignKey(Parishioner, on_delete=models.CASCADE)
     type = models.CharField(max_length=10, choices=DONATION_TYPE_CHOICES, default='money')
     amount = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
-    payment_method = models.CharField(max_length=50, choices=PAYMENT_METHOD_CHOICES, blank=True, null=True)  # ✅ updated
+
+    # ✅ Changed: removed choices to allow free text
+    payment_method = models.CharField(max_length=100, blank=True, null=True)
+
     item_name = models.CharField(max_length=255, blank=True)
     quantity = models.PositiveIntegerField(blank=True, null=True)
     item_condition = models.CharField(max_length=255, blank=True)
@@ -294,7 +290,7 @@ class Donation(models.Model):
     received = models.BooleanField(default=False)
     anonymous = models.BooleanField(default=False)
     pickup_requested = models.BooleanField(default=False)
-    approved = models.BooleanField(default=False)  # For item approval
+    approved = models.BooleanField(default=False)
     transaction_id = models.CharField(max_length=255, blank=True, null=True)
     status = models.CharField(
         max_length=20,
@@ -304,6 +300,7 @@ class Donation(models.Model):
 
     def __str__(self):
         return f"{self.get_type_display()} Donation by {self.donor if not self.anonymous else 'Anonymous'}"
+
 
 # ----------------------------------------
 # Fundraising Campaign Model

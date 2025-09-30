@@ -17,7 +17,7 @@ from .views import (
     CustomUserViewSet,get_upcoming_events,mark_attendance_event,MyQr_view,MySacramentRecordViewSet,
     IndividualCertificatePDFView, user_attendance_history,privacy_policy, user_donation_view,
     user_donations, receipt_view, attendance_summary, attendance_over_time, groups_view,GroupViewSet,
-    groups_view_user
+    groups_view_user,financial_summary
 )
 
 # DRF Router setup
@@ -37,6 +37,9 @@ router.register(r'sacrament-record', MySacramentRecordViewSet, basename='sacrame
 # URL patterns
 urlpatterns = [
     path('', LandingPage_view, name='LandingPage'),
+
+    path('api/financial-summary/', financial_summary, name='financial_summary'),
+
 
     # API routes
     path('api/', include(router.urls)),

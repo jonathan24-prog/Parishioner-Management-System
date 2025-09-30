@@ -371,23 +371,27 @@ new Vue({
     fetchTotalRequest() {
       axios.get('/prayer-request/count/').then(res => this.totalRequest = res.data.count);
     },
-   onFilterChange() {
+    onFilterChange() {
       if (this.filterType !== "month") this.selectedMonth = "";
       if (this.filterType !== "date") this.selectedDate = "";
       this.fetchAttendanceSummary();
     },
-    fetchAttendanceSummary() {
-      axios.get('/attendance/summary/', {
-        params: { 
-          filter: this.filterType,
-          date: this.filterType === "date" ? this.selectedDate : "",
-          month: this.filterType === "month" ? this.selectedMonth : ""
-        }
-      }).then(res => {
-        this.attendanceData = res.data;
-        this.renderAttendanceCharts();
-      });
-    },
+   fetchAttendanceSummary() {
+  let params = { filter: this.filterType };
+
+  if (this.filterType === "date") params.date = this.selectedDate;
+  if (this.filterType === "month") {
+    const [year, month] = this.selectedMonth.split('-');
+    params.start_date = `${year}-${month}-01`;
+    params.end_date = `${year}-${month}-${new Date(year, month, 0).getDate()}`;
+  }
+
+  axios.get('/attendance/summary/', { params })
+    .then(res => {
+      this.attendanceData = res.data;
+      this.renderAttendanceCharts();
+    });
+},
     fetchAttendanceOverTime() {
       axios.get('/attendance/over-time/', {
         params: { month: this.selectedMonth }
@@ -432,7 +436,7 @@ new Vue({
           datasets: [{
             label: 'Absentees',
             data: this.absenteeTrend.values,
-            borderColor: '#dc3545',
+            borderColor: '#e68a3f',
             fill: false,
             tension: 0.1
           }]
@@ -448,7 +452,7 @@ new Vue({
           datasets: [{
             label: 'Total Attendance',
             data: this.attendanceOverTime.values,
-            borderColor: '#28a745',
+            borderColor: '#e68a3f',
             fill: false,
             tension: 0.3
           }]
