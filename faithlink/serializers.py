@@ -145,19 +145,19 @@ class DonorSerializer(serializers.ModelSerializer):
 
 class DonationSerializer(serializers.ModelSerializer):
     donor_name = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = Donation
         fields = '__all__'
         extra_kwargs = {
-            'donor': {'read_only': True},
-            'received': {'read_only': True},
+            'donor': {'read_only': True},   # keep donor locked (set from backend)
+            # remove "received" here so it's writable
         }
 
     def get_donor_name(self, obj):
         if obj.anonymous:
             return "Anonymous"
         return f"{obj.donor.user.first_name} {obj.donor.user.last_name}"
-
 
 
 
