@@ -497,6 +497,113 @@ def user_attendance_history(request):
         'event_attendance': event_attendance,
     })
 
+import pandas as pd
+from django.http import HttpResponse
+from django.contrib.auth.decorators import login_required
+from django.utils.timezone import now
+from .models import Attendance, Donation  # adjust to your app structure
+
+@login_required
+def export_attendance_excel(request):
+    filter_type = request.GET.get("filter", "today")
+    date = request.GET.get("date")
+    month = request.GET.get("month")
+
+    today = now().date()
+    qs = Attendance.objects.all()
+
+    # Apply filters
+    if filter_type == "today":
+        qs = qs.filter(date=today)
+    elif filter_type == "date" and date:
+        qs = qs.filter(date=date)
+    elif filter_type == "month" and month:
+        try:
+            year, month_num = month.split("-")
+            qs = qs.filter(date__year=year, date__month=month_num)
+        except ValueError:
+            pass
+
+    data = [
+        {
+            "Date": a.date,
+            "Event": getattr(a.event, "name", "N/A"),
+            "Mass Type": a.mass_type or "N/A",
+            "Parishioner": str(a.parishioner),
+            "Status": a.status,
+        }
+        for a in qs
+    ]
+    df = pd.DataFrame(data)
+
+    # Add totals (optional: count present/absent)
+    if not df.empty:
+        totals = {
+            "Date": "TOTAL",
+            "Event": "-",
+            "Mass Type": "-",
+            "Parishioner": f"{df['Parishioner'].nunique()} unique",
+            "Status": f"{(df['Status'] == 'Present').sum()} present / {(df['Status'] != 'Present').sum()} absent",
+        }
+        df = pd.concat([df, pd.DataFrame([totals])], ignore_index=True)
+
+    response = HttpResponse(content_type="application/vnd.ms-excel")
+    response["Content-Disposition"] = 'attachment; filename="attendance_summary.xlsx"'
+    df.to_excel(response, index=False)
+    return response
+
+
+
+# ---------------- Financial Excel ----------------
+@login_required
+def export_financial_excel(request):
+    filter_type = request.GET.get("filter", "all")
+    date = request.GET.get("date")
+    month = request.GET.get("month")
+
+    today = now().date()
+    qs = Donation.objects.select_related("donor").all()
+
+    # Apply filters from Vue
+    if filter_type == "today":
+        qs = qs.filter(date=today)
+    elif filter_type == "date" and date:
+        qs = qs.filter(date=date)
+    elif filter_type == "month" and month:
+        try:
+            year, month_num = month.split("-")
+            qs = qs.filter(date__year=year, date__month=month_num)
+        except ValueError:
+            pass
+    # else "all" → no filter applied
+
+    data = [
+        {
+            "Date": d.date,
+            "Donor": d.donor.user.get_full_name() if d.donor and d.donor.user else "Anonymous",
+            "Amount": d.amount,
+            "Type": d.payment_method or "Unspecified",
+        }
+        for d in qs
+    ]
+    df = pd.DataFrame(data)
+
+    # Add totals row
+    if not df.empty:
+        totals = {
+            "Date": "TOTAL",
+            "Donor": f"{df['Donor'].nunique()} donors",
+            "Amount": df["Amount"].sum(),
+            "Type": "-",
+        }
+        df = pd.concat([df, pd.DataFrame([totals])], ignore_index=True)
+
+    response = HttpResponse(content_type="application/vnd.ms-excel")
+    response["Content-Disposition"] = 'attachment; filename="financial_summary.xlsx"'
+    df.to_excel(response, index=False)
+    return response
+
+
 
 def attendance_view(request):
     events = Event.objects.filter(date__gte=timezone.now())

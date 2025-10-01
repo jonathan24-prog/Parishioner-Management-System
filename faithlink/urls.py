@@ -17,7 +17,7 @@ from .views import (
     CustomUserViewSet,get_upcoming_events,mark_attendance_event,MyQr_view,MySacramentRecordViewSet,
     IndividualCertificatePDFView, user_attendance_history,privacy_policy, user_donation_view,
     user_donations, receipt_view, attendance_summary, attendance_over_time, groups_view,GroupViewSet,
-    groups_view_user,financial_summary
+    groups_view_user,financial_summary, export_attendance_excel, export_financial_excel
 )
 
 # DRF Router setup
@@ -40,7 +40,8 @@ urlpatterns = [
 
     path('api/financial-summary/', financial_summary, name='financial_summary'),
 
-
+ path("attendance/export-excel/", export_attendance_excel, name="export_attendance_excel"),
+    path("api/financial-export-excel/",export_financial_excel, name="export_financial_excel"),
     # API routes
     path('api/', include(router.urls)),
     # path('api/mark-attendance/', mark_attendance, name='mark_attendance'),

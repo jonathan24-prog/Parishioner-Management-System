@@ -140,7 +140,13 @@
   {% if request.user.is_superuser %}
 
   <!-- ================== ATTENDANCE INSIGHTS ================== -->
-  <h4 class="fw-bold mt-5 mb-3" style="color:#e68a3f;">Attendance Insights</h4>
+   <h4 class="fw-bold mt-5 mb-3 d-flex justify-content-between align-items-center" style="color:#e68a3f;">
+    Attendance Insights
+    <button class="btn btn-sm btn-outline-success" @click="exportAttendanceExcel">
+      📥 Export to Excel
+    </button>
+  </h4>
+  
   
   <!-- Filters -->
   <div class="row mb-3">
@@ -237,8 +243,12 @@
   {% endif %}
   {% if request.user.is_superuser %}
 <!-- ================== FINANCIAL INSIGHTS ================== -->
-<h4 class="fw-bold mt-5 mb-3" style="color:#e68a3f;">Financial Insights</h4>
-
+<h4 class="fw-bold mt-5 mb-3 d-flex justify-content-between align-items-center" style="color:#e68a3f;">
+      Financial Insights
+      <button class="btn btn-sm btn-outline-success" @click="exportFinancialExcel">
+        📥 Export to Excel
+      </button>
+  </h4>
 <!-- Filters -->
 <div class="row mb-3">
   <div class="col-md-6">
@@ -515,6 +525,42 @@ new Vue({
       }
     });
   },
+      exportAttendanceExcel() {
+      axios.get("/attendance/export-excel/", {
+        responseType: "blob",
+        params: {
+          filter: this.filterType,
+          date: this.filterType === "date" ? this.selectedDate : "",
+          month: this.filterType === "month" ? this.selectedMonth : ""
+        }
+      }).then(res => {
+        const url = window.URL.createObjectURL(new Blob([res.data]));
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", "attendance_summary.xlsx");
+        document.body.appendChild(link);
+        link.click();
+      });
+    },
+
+    // ✅ Updated Financial Export with filters
+    exportFinancialExcel() {
+      axios.get("/api/financial-export-excel/", {
+        responseType: "blob",
+        params: {
+          filter: this.financialFilterType,
+          date: this.financialFilterType === "date" ? this.financialSelectedDate : "",
+          month: this.financialFilterType === "month" ? this.financialSelectedMonth : ""
+        }
+      }).then(res => {
+        const url = window.URL.createObjectURL(new Blob([res.data]));
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", "financial_summary.xlsx");
+        document.body.appendChild(link);
+        link.click();
+      });
+    },
 
     destroyChart(chartId) {
       if (this.chartInstances[chartId]) {
