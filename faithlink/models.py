@@ -320,12 +320,16 @@ class FundraisingCampaign(models.Model):
 # ----------------------------------------
 # Prayer Request Model
 # ----------------------------------------
+# models.py
 class PrayerRequest(models.Model):
     parishioner = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
     prayer_request = models.TextField()
+    date_requested = models.DateTimeField(auto_now_add=True)
+    answered = models.BooleanField(default=False)  # ✅ Add this field
 
     def __str__(self):
         return f"Prayer Request by {self.parishioner}"
+
 
 
 # ----------------------------------------
@@ -333,20 +337,59 @@ class PrayerRequest(models.Model):
 # ----------------------------------------
 from django.db import models
 from django.utils.timezone import now
+# ----------------------------------------
+# Sacrament Record Model
+# ----------------------------------------
+from django.db import models
+from django.utils.timezone import now
 
 class SacramentRecord(models.Model):
-    parishioner = models.ForeignKey(Parishioner, on_delete=models.CASCADE)
+    parishioner = models.ForeignKey("Parishioner", on_delete=models.CASCADE)
     sacrament = models.CharField(max_length=100)
     date_received = models.DateField(default=now)
     place_received = models.CharField(max_length=255)
     officiant = models.CharField(max_length=255, blank=True, null=True)
     notes = models.TextField(blank=True, null=True)
 
-    certificate_requested = models.BooleanField(default=False)  # <-- add this
+    certificate_requested = models.BooleanField(default=False)
+    archived = models.BooleanField(default=False)   # <-- NEW FIELD
 
     def __str__(self):
         return f"{self.sacrament} - {self.parishioner.name}"
 
+
+
+from django.db import models
+from django.utils.timezone import now
+
+class CertificateRequest(models.Model):
+    SACRAMENT_CHOICES = [
+        ("Baptism", "Baptism"),
+        ("Confirmation", "Confirmation"),
+        ("Eucharist", "Eucharist"),
+        ("Marriage", "Marriage"),
+        ("Anointing of the Sick", "Anointing of the Sick"),
+    ]
+
+    parishioner = models.ForeignKey("Parishioner", on_delete=models.CASCADE)
+    sacrament = models.CharField(max_length=100, choices=SACRAMENT_CHOICES)
+    notes = models.TextField(blank=True, null=True)
+    status = models.CharField(
+        max_length=20,
+        choices=[("Pending", "Pending"), ("Approved", "Approved"), ("Rejected", "Rejected")],
+        default="Pending"
+    )
+    linked_record = models.ForeignKey(
+        "SacramentRecord",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        help_text="Optional: link this request to an actual record later"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.parishioner} - {self.sacrament} ({self.status})"
 
 # ----------------------------------------
 # Attendance Model

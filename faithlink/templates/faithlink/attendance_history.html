@@ -4,19 +4,85 @@
 <div class="container my-5">
   <h2 class="text-center mb-5 fw-bold text-primary">Attendance History</h2>
 
+  <!-- ====================== -->
+  <!-- Filter Export Section -->
+  <!-- ====================== -->
+  <div class="card shadow-sm border-0 rounded-4 mb-5">
+    <div class="card-header text-dark fw-bold rounded-top-4">
+      <i class="bi bi-file-earmark-excel-fill me-2"></i> Export Attendance Report
+    </div>
+
+    <div class="card-body bg-light">
+      <form method="get" action="{% url 'download_attendance_excel' %}">
+        <div class="row g-3 align-items-end">
+
+          <!-- Date Range -->
+          <div class="col-md-3">
+            <label class="form-label fw-semibold text-secondary">Start Date</label>
+            <input type="date" name="start_date" class="form-control form-control-lg rounded-3 shadow-sm">
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label fw-semibold text-secondary">End Date</label>
+            <input type="date" name="end_date" class="form-control form-control-lg rounded-3 shadow-sm">
+           
+          </div>
+          
+
+
+          <!-- Event Type -->
+          <div class="col-md-3">
+            <label class="form-label fw-semibold text-secondary">Attendance Type</label>
+            <select name="event_type" class="form-select form-select-lg rounded-3 shadow-sm">
+              <option value="">All Types</option>
+              <option value="Morning Mass">Morning Mass</option>
+              <option value="Afternoon Mass">Afternoon Mass</option>
+              <option value="Evening Mass">Evening Mass</option>
+              <option value="Event">Event</option>
+            </select>
+          </div>
+
+          <!-- Status -->
+          <div class="col-md-3">
+            <label class="form-label fw-semibold text-secondary">Status</label>
+            <select name="status" class="form-select form-select-lg rounded-3 shadow-sm">
+              <option value="">All Status</option>
+              <option value="Present">Present</option>
+              <option value="Absent">Absent</option>
+            </select>
+          </div>
+
+          <!-- Action Button -->
+           <div class="col-6 text-start mt-3">
+             <small class="text-muted fst-italic d-block mt-1">
+              If exporting for one day only, use the same date for both fields.
+            </small>
+            
+          </div>
+          <div class="col-6 text-end mt-3">
+             
+            <button type="submit" class="btn btn-success btn-lg shadow-sm px-5">
+              <i class="bi bi-download me-2"></i>Download Excel Report
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Attendance Records Card -->
   <div class="card shadow-sm mb-5 border-0 rounded-4">
-    <div class="card-header bg-light fw-semibold rounded-top-4">All Attendance Records</div>
+    <div class="card-header bg-light fw-semibold text-dark rounded-top-4">All Attendance Records</div>
     <div class="card-body">
 
-      <!-- Filters -->
+      <!-- Inline Filters (Search + Filters) -->
       <div class="row mb-4 g-3">
         <div class="col-md-3">
-          <input type="text" class="form-control form-control-lg" id="searchAttendance" placeholder="Search attendance..." onkeyup="filterAttendance()">
+          <input type="text" class="form-control form-control-lg rounded-3" id="searchAttendance" placeholder="Search name or event..." onkeyup="filterAttendance()">
         </div>
 
         <div class="col-md-2">
-          <select class="form-select form-select-lg" id="typeFilter" onchange="toggleEventFilter(); filterAttendance()">
+          <select class="form-select form-select-lg rounded-3" id="typeFilter" onchange="toggleEventFilter(); filterAttendance()">
             <option value="">All Types</option>
             <option value="Morning Mass">Morning Mass</option>
             <option value="Afternoon Mass">Afternoon Mass</option>
@@ -26,15 +92,15 @@
         </div>
 
         <div class="col-md-3 d-none" id="eventTypeWrapper">
-          <input type="text" class="form-control form-control-lg" id="eventTypeFilter" placeholder="Event type..." onkeyup="filterAttendance()">
+          <input type="text" class="form-control form-control-lg rounded-3" id="eventTypeFilter" placeholder="Search event type..." onkeyup="filterAttendance()">
         </div>
 
         <div class="col-md-2">
-          <input type="date" class="form-control form-control-lg" id="dateFilter" onchange="filterAttendance()">
+          <input type="date" class="form-control form-control-lg rounded-3" id="dateFilter" onchange="filterAttendance()">
         </div>
 
         <div class="col-md-2">
-          <select class="form-select form-select-lg" id="statusFilter" onchange="filterAttendance()">
+          <select class="form-select form-select-lg rounded-3" id="statusFilter" onchange="filterAttendance()">
             <option value="">All Status</option>
             <option value="Present">Present</option>
             <option value="Absent">Absent</option>
@@ -73,7 +139,7 @@
             </tr>
             {% empty %}
             <tr>
-              <td colspan="6" class="text-muted">No attendance records found.</td>
+              <td colspan="6" class="text-muted py-3">No attendance records found.</td>
             </tr>
             {% endfor %}
           </tbody>
@@ -82,11 +148,11 @@
     </div>
   </div>
 
-  <!-- Absentee Summary Card -->
+  <!-- Absentee Summary -->
   <div class="card shadow-sm border-0 rounded-4 mb-5">
-    <div class="card-header bg-warning fw-bold rounded-top-4 text-dark">Absentee Summary</div>
-    <div class="card-body">
-      <input type="text" class="form-control form-control-lg mb-3" id="absentSearch" placeholder="Filter by name or date..." onkeyup="filterTable('absenteeTable', 'absentSearch')">
+    <div class="card-header fw-bold rounded-top-4 text-dark" style="background-color: rgba(232, 155, 155, 0.244);">Absentee Summary</div>
+    <div class="card-body bg-light">
+      <input type="text" class="form-control form-control-lg mb-3 rounded-3" id="absentSearch" placeholder="Search name or date..." onkeyup="filterTable('absenteeTable', 'absentSearch')">
 
       {% if absentee_summary %}
       <div class="table-responsive shadow-sm rounded-4 overflow-hidden" style="max-height: 350px;">
@@ -105,28 +171,27 @@
               <td>{{ forloop.counter }}</td>
               <td>{{ record.name }}</td>
               <td>{{ record.date|date:"F d, Y" }}</td>
-              <td>
-                <span class="badge bg-danger rounded-pill px-3 py-1">{{ record.type }}</span>
-              </td>
+              <td><span class="badge bg-danger rounded-pill px-3 py-1">{{ record.type }}</span></td>
             </tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
       {% else %}
-      <p class="text-muted">No absentees found.</p>
+      <p class="text-muted text-center">No absentees found.</p>
       {% endif %}
     </div>
   </div>
 
   <!-- Back Button -->
-  <div class="text-center">
-    <a href="{% url 'attendance' %}" class="btn btn-secondary btn-lg px-5 rounded-pill shadow-sm">Back to Scanner</a>
+  <div class="text-center mt-4">
+    <a href="{% url 'attendance' %}" class="btn btn-secondary btn-lg px-5 rounded-pill shadow-sm">
+      <i class="bi bi-arrow-left me-2"></i>Back to Scanner
+    </a>
   </div>
 </div>
 
 <script>
-  // Show/hide event type filter
   function toggleEventFilter() {
     const type = document.getElementById("typeFilter").value;
     const wrapper = document.getElementById("eventTypeWrapper");
@@ -134,7 +199,6 @@
     if(type !== "Event") document.getElementById("eventTypeFilter").value = "";
   }
 
-  // Filter attendance table with all filters
   function filterAttendance() {
     const search = document.getElementById("searchAttendance").value.toLowerCase();
     const type = document.getElementById("typeFilter").value.toLowerCase();
@@ -145,37 +209,33 @@
     const table = document.getElementById("attendanceTable");
     const trs = table.getElementsByTagName("tbody")[0].getElementsByTagName("tr");
 
-    for (let i=0; i<trs.length; i++){
+    for (let i = 0; i < trs.length; i++) {
       const rowText = trs[i].textContent.toLowerCase();
       const typeCell = trs[i].querySelector(".record-type").textContent.toLowerCase();
       const dateCell = trs[i].querySelector(".record-date").textContent;
       const statusCell = trs[i].querySelector(".record-status").textContent.toLowerCase();
 
       let matches = true;
-
-      if(search && rowText.indexOf(search) === -1) matches = false;
-
-      if(type){
-        if(type === "event") {
-          if(typeCell === "morning mass" || typeCell === "afternoon mass" || typeCell === "evening mass") matches = false;
-          if(eventType && typeCell.indexOf(eventType) === -1) matches = false;
-        } else if(typeCell.indexOf(type) === -1) matches = false;
+      if (search && rowText.indexOf(search) === -1) matches = false;
+      if (type) {
+        if (type === "event") {
+          if (typeCell === "morning mass" || typeCell === "afternoon mass" || typeCell === "evening mass") matches = false;
+          if (eventType && typeCell.indexOf(eventType) === -1) matches = false;
+        } else if (typeCell.indexOf(type) === -1) matches = false;
       }
-
-      if(date && dateCell !== date) matches = false;
-      if(status && statusCell !== status) matches = false;
+      if (date && dateCell !== date) matches = false;
+      if (status && statusCell !== status) matches = false;
 
       trs[i].style.display = matches ? "" : "none";
     }
   }
 
-  // Filter absentee summary
-  function filterTable(tableId,inputId){
+  function filterTable(tableId, inputId) {
     const input = document.getElementById(inputId);
     const filter = input.value.toLowerCase();
     const table = document.getElementById(tableId);
     const trs = table.getElementsByTagName("tbody")[0].getElementsByTagName("tr");
-    for(let i=0;i<trs.length;i++){
+    for (let i = 0; i < trs.length; i++) {
       const rowText = trs[i].textContent.toLowerCase();
       trs[i].style.display = rowText.indexOf(filter) > -1 ? "" : "none";
     }

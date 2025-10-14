@@ -58,7 +58,7 @@
 
         <el-button
           size="mini"
-          type="success"
+          type="success" plain
           v-if="!scope.row.is_member && !scope.row.request_pending"
           icon="el-icon-plus"
           @click="requestJoin(scope.row)">
@@ -67,7 +67,7 @@
 
         <el-button
           size="mini"
-          type="warning"
+          type="warning" plain
           v-if="scope.row.request_pending"
           icon="el-icon-time"
           @click="cancelRequest(scope.row)">
@@ -76,7 +76,7 @@
 
         <el-button
           size="mini"
-          type="danger"
+          type="danger" plain
           v-if="scope.row.is_member"
           icon="el-icon-close"
           @click="leaveGroup(scope.row)">

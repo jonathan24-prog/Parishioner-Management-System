@@ -68,3 +68,20 @@ class DonationForm(forms.ModelForm):
                 self.add_error('item_name', "Item name is required for item donations.")
 
         return cleaned_data
+    
+
+    # faithlink/forms.py
+from django import forms
+from .models import Parishioner
+
+class ParishionerFormUpdate(forms.ModelForm):
+    class Meta:
+        model = Parishioner
+        fields = [
+            'name', 'contact', 'gender', 'marital_status', 'nationality',
+            'address', 'emergency_contact', 'family_group', 'birthdate', 'face_image'
+        ]
+        widgets = {
+            'birthdate': forms.DateInput(attrs={'type': 'date'}),
+        }
+

@@ -9,10 +9,22 @@
     <p class="spinner-text">Loading events...</p>
   </div>
 
-  <!-- Add Event Button -->
-  <el-button type="success" icon="el-icon-plus" class="mb-3" @click="dialogVisible = true">Add Event</el-button>
+  <div class="flex items-center justify-between mb-8">
+      <h2 class="text-3xl font-bold text-[#ce7659] tracking-tight">
+        List of Events
+      </h2>
+      <!-- =================== Request New Certificate Button =================== -->
+      <el-button
+        type="primary"
+        icon="el-icon-circle-plus-outline"
+        size="large"
+        class="rounded-xl px-3 py-2"
+        @click="dialogVisible = true"
+      >
+        Add Event
+      </el-button>
+    </div>
 
-  <h2 class="section-title">List of Events</h2>
 
   <!-- Add Event Modal -->
   <el-dialog title="Create Event" :visible.sync="dialogVisible" width="30%">
@@ -56,8 +68,8 @@
   <el-card class="mt-4">
     <v-client-table :columns="columns" :data="events">
       <template slot="action" slot-scope="props">
-        <el-button type="primary" size="small" icon="el-icon-edit" @click="openEditModal(props.row)">Edit</el-button>
-        <el-button type="danger" size="small" icon="el-icon-delete" @click="deleteEvent(props.row.id)">Delete</el-button>
+        <el-button type="primary" plain size="small" icon="el-icon-edit" @click="openEditModal(props.row)">Edit</el-button>
+        <el-button type="danger" plain size="small" icon="el-icon-delete" @click="deleteEvent(props.row.id)">Delete</el-button>
       </template>
     </v-client-table>
   </el-card>

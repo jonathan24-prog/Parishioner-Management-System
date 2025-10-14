@@ -17,7 +17,8 @@ from .views import (
     CustomUserViewSet,get_upcoming_events,mark_attendance_event,MyQr_view,MySacramentRecordViewSet,
     IndividualCertificatePDFView, user_attendance_history,privacy_policy, user_donation_view,
     user_donations, receipt_view, attendance_summary, attendance_over_time, groups_view,GroupViewSet,
-    groups_view_user,financial_summary, export_attendance_excel, export_financial_excel
+    groups_view_user,financial_summary, export_attendance_excel, export_financial_excel, CertificateRequestViewSet,
+    download_attendance_excel, profile_view, profile_edit
 )
 
 # DRF Router setup
@@ -32,6 +33,7 @@ router.register(r'prayer-requests', PrayerRequestViewSet)
 router.register(r'sacrament-records', SacramentRecordViewSet, basename='sacrament-records')
 router.register(r'attendance', AttendanceViewSet)
 router.register(r'sacrament-record', MySacramentRecordViewSet, basename='sacramentrecord')
+router.register(r'certificate-requests', CertificateRequestViewSet)
 
 
 # URL patterns
@@ -39,6 +41,10 @@ urlpatterns = [
     path('', LandingPage_view, name='LandingPage'),
 
     path('api/financial-summary/', financial_summary, name='financial_summary'),
+    path('attendance/download-excel/', download_attendance_excel, name='download_attendance_excel'),
+    
+    path('profile/', profile_view, name='profile_view'),
+    path('profile/edit/', profile_edit, name='profile_edit'),
 
  path("attendance/export-excel/", export_attendance_excel, name="export_attendance_excel"),
     path("api/financial-export-excel/",export_financial_excel, name="export_financial_excel"),

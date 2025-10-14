@@ -14,12 +14,12 @@
       <el-card class="mb-4">
         <v-client-table :columns="columns" :data="donations" class="w-full">
           <template slot="action" slot-scope="props">
-            <el-button size="small" type="success" 
+            <el-button size="small" type="success" plain 
               v-if="!props.row.received"
               @click="markAsReceived(props.row.id)">Mark as Received</el-button>
             <el-tag type="success" v-else>Received</el-tag>
 
-            <el-button size="small" type="warning" @click="editDonation(props.row)">Edit</el-button>
+            <el-button size="small" type="warning" plain @click="editDonation(props.row)">Edit</el-button>
           </template>
         </v-client-table>
       </el-card>

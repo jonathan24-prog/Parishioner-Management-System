@@ -106,12 +106,15 @@ class GroupSerializer(serializers.ModelSerializer):
         return 0
 
 
+# faithlink/serializers.py
+from rest_framework import serializers
+from .models import Parishioner
+
 class ParishionerSerializer(serializers.ModelSerializer):
-    # Optional: keep groups as read-only summarized list
     class Meta:
         model = Parishioner
         fields = '__all__'
-        read_only_fields = ['groups']
+        read_only_fields = ['user', 'parishioner_id', 'groups', 'date_approved']
 
 
 
@@ -159,6 +162,18 @@ class DonationSerializer(serializers.ModelSerializer):
             return "Anonymous"
         return f"{obj.donor.user.first_name} {obj.donor.user.last_name}"
 
+
+
+from rest_framework import serializers
+from .models import CertificateRequest
+
+class CertificateRequestSerializer(serializers.ModelSerializer):
+    parishioner_name = serializers.CharField(source="parishioner.name", read_only=True)
+
+    class Meta:
+        model = CertificateRequest
+        fields = "__all__"
+        read_only_fields = ["status", "linked_record", "created_at", "parishioner"]
 
 
 

@@ -19,43 +19,38 @@
     </h2>
     <h3 class="mb-4 text-muted">Parishioners / Home</h3>
 
-    <!-- Tabs and Table -->
-    <div>
-      <el-tabs
-        v-model="selectedTable"
-        type="card"
-        size="small"
-        class="sticky-tabs"
-        style="margin-bottom: 10px;"
-      >
-        <el-tab-pane label="Parishioners" name="parishioners"></el-tab-pane>
-        <el-tab-pane name="other">
-          <template #label>
-            Pending Approvals
-            <el-badge v-if="parishioners.length > 0" :value="parishioners.length" class="ml-1" type="danger" />
-          </template>
-        </el-tab-pane>
-      </el-tabs>
+    <!-- Tabs (Revised like Financial Management) -->
+    <el-tabs type="card">
+      
+      <!-- Parishioners Tab -->
+      <el-tab-pane label="Parishioners">
+        <el-card>
+          <v-client-table :columns="columns" :data="ids">
+            <template slot="action" slot-scope="props">
+              <a :href="props.row.uri">
+                <el-button type="success" size="small" circle icon="el-icon-edit"></el-button>
+              </a>
+            </template>
+          </v-client-table>
+        </el-card>
+      </el-tab-pane>
 
-      <!-- Parishioners Table -->
-      <v-client-table v-if="selectedTable === 'parishioners'" :columns="columns" :data="ids">
-        <template slot="action" slot-scope="props">
-          <a :href="props.row.uri">
-            <el-button type="success" size="small" circle icon="el-icon-edit"></el-button>
-          </a>
+      <!-- Pending Approvals Tab -->
+      <el-tab-pane>
+        <template slot="label">
+          Pending Approvals
+          <el-badge v-if="parishioners.length > 0" :value="parishioners.length" class="ml-1" type="danger" />
         </template>
-
-
-      </v-client-table>
-
-      <!-- Pending Approvals Table -->
-      <v-client-table v-else :columns="columns" :data="parishioners">
-        <template slot="action" slot-scope="props">
-          <el-button type="success" size="small" circle icon="el-icon-check" @click="approveParishioner(props.row.id)"></el-button>
-          <el-button type="danger" size="small" circle icon="el-icon-close" @click="declineParishioner(props.row.id)"></el-button>
-        </template>
-      </v-client-table>
-    </div>
+        <el-card>
+          <v-client-table :columns="columns" :data="parishioners">
+            <template slot="action" slot-scope="props">
+              <el-button type="success" size="small" circle icon="el-icon-check" @click="approveParishioner(props.row.id)"></el-button>
+              <el-button type="danger" size="small" circle icon="el-icon-close" @click="declineParishioner(props.row.id)"></el-button>
+            </template>
+          </v-client-table>
+        </el-card>
+      </el-tab-pane>
+    </el-tabs>
   </div>
 </div>
 {% endblock %}
@@ -73,7 +68,6 @@
         columns: ['id', 'username', 'address', 'gender', 'contact', 'birthdate', 'groups', 'action'], // ✅ Added 'groups'
         parishioners: [],
         ids: [],
-        selectedTable: 'parishioners',
         isLoading: true,
         spinnerStyle: {}
       };
@@ -103,8 +97,7 @@
               contact: user.contact, 
               address: user.address,
               birthdate: user.birthdate,
-             groups: user.groups ? user.groups.map(g => g.name).join(', ') : 'No Groups',
- // ✅ Add groups here
+              groups: user.groups ? user.groups.map(g => g.name).join(', ') : 'No Groups',
               uri: `/editparishioner/${user.id}`
             }));
           })
@@ -201,13 +194,6 @@
     }
   }
 
-  .sticky-tabs {
-    position: sticky;
-    top: 0;
-    background: white;
-    z-index: 5;
-    padding-top: 5px;
-  }
   .el-badge {
     vertical-align: top;
     margin-left: 6px;

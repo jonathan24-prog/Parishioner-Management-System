@@ -15,7 +15,7 @@
         <el-button 
           v-if="!props.row.answered" 
           size="small" 
-          type="success" 
+          type="success" plain
           @click="markAsAnswered(props.row)">
           Mark as Answered
         </el-button>
@@ -122,11 +122,10 @@
       },
       markAsAnswered(prayerRequest) {
         axios.put(`/api/prayer-requests/${prayerRequest.id}/`, {
+          prayer_request: prayerRequest.prayer_request,
           answered: true
         }, {
-          headers: {
-            'X-CSRFToken': this.getCookie('csrftoken')
-          }
+          headers: { 'X-CSRFToken': this.getCookie('csrftoken') }
         })
         .then(() => {
           this.fetchPrayerRequests();

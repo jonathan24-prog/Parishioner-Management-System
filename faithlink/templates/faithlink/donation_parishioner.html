@@ -2,17 +2,24 @@
 
 {% block content %}
 <div id="user-donation-app" class="container py-5">
-  <h2 style="font-size: 2.5rem; font-weight: 700; color: #ce7659; margin-bottom: 20px;">
-    My Sacramental Records
-  </h2>
+    <div class="flex items-center justify-between mb-8">
+      <h2 class="text-3xl font-bold text-[#ce7659] tracking-tight">
+        My Donation
+      </h2>
+      <!-- =================== Request New Certificate Button =================== -->
+      <el-button
+        type="primary"
+        icon="el-icon-circle-plus-outline"
+        size="large"
+        class="rounded-xl px-3 py-2"
+        @click="showModal = true"
+      >
+        Make a donation
+      </el-button>
+    </div>
+  
+  
 
-
-  <!-- Make Donation Button -->
-  <div class=" mb-4">
-    <el-button type="primary" icon="el-icon-plus" @click="showModal = true" size="large">
-      Make a Donation
-    </el-button>
-  </div>
 
   <!-- Donation Modal -->
   <el-dialog title="Make a Donation" :visible.sync="showModal" width="600px" :before-close="handleClose">
@@ -31,17 +38,23 @@
           prefix-icon="el-icon-money"
         ></el-input>
       </el-form-item>
- 
+
+      <!-- Payment Method Dropdown with Logos -->
       <el-form-item label="Payment Method" v-if="form.type === 'money'">
-  <el-select v-model="form.payment_method" placeholder="Select payment method">
-    <el-option label="Cash" value="cash"></el-option>
-    <el-option label="GCash" value="gcash"></el-option>
-    <el-option label="Bank Transfer" value="bank_transfer"></el-option>
-    <el-option label="PayPal" value="paypal"></el-option>
-  </el-select>
-</el-form-item>
-
-
+        <el-select v-model="form.payment_method" placeholder="Select payment method">
+          <el-option
+            v-for="method in paymentMethods"
+            :key="method.value"
+            :value="method.value"
+            :label="method.label">
+            <div style="display: flex; justify-content: center; align-items: center;">
+              <img 
+                :src="method.logo" 
+                style="width: 80px; height: 30px; object-fit: contain; border: none; border-radius: 4px;" />
+            </div>
+          </el-option>
+        </el-select>
+      </el-form-item>
 
       <el-form-item label="Item Name" v-if="form.type === 'item'">
         <el-input v-model="form.item_name" placeholder="e.g., Laptop, Speaker"></el-input>
@@ -138,7 +151,7 @@
           <el-button
             v-if="scope.row.received"
             size="mini"
-            type="primary"
+            type="primary" plain
             @click="viewReceipt(scope.row.id)">
             View
           </el-button>
@@ -172,7 +185,13 @@ new Vue({
         consent: false 
       },
       donations: [],
-      loading: false
+      loading: false,
+      paymentMethods: [
+        { label: 'GCash', value: 'gcash', logo: '/static/faithlink/images/gcash.png' },
+        { label: 'PayPal', value: 'paypal', logo: '/static/faithlink/images/paypal.png' },
+        { label: 'Bank Transfer', value: 'bank_transfer', logo: '/static/faithlink/images/bank.png' },
+        { label: 'Cash', value: 'cash', logo: '/static/faithlink/images/cash.png' }
+      ]
     };
   },
   mounted() {
@@ -210,70 +229,38 @@ new Vue({
       this.form.photo = event.target.files[0];
     },
     submitDonation() {
-  if (!this.form.consent) {
-    this.$message.warning("You must consent to data collection before submitting.");
-    return;
-  }
+      if (!this.form.consent) {
+        this.$message.warning("You must consent to data collection before submitting.");
+        return;
+      }
 
-  const formData = new FormData();
-  for (let key in this.form) {
-    if (this.form[key] !== null && this.form[key] !== '') {
-      formData.append(key, this.form[key]);
-    }
-  }
+      const formData = new FormData();
+      for (let key in this.form) {
+        if (this.form[key] !== null && this.form[key] !== '') {
+          formData.append(key, this.form[key]);
+        }
+      }
 
-  axios.post('/api/donations/', formData, {
-    headers: {
-      'X-CSRFToken': this.getCookie('csrftoken'),
-      'Content-Type': 'multipart/form-data'
-    }
-  })
-  .then((res) => {
-    if (res.data.payment_url) {
-      // Redirect donor to PayMongo/PayPal checkout page
-      window.location.href = res.data.payment_url;
-    } else {
-      this.$message.success("Donation submitted successfully!");
-      this.resetForm();
-      this.showModal = false;
-      this.fetchDonations();
-    }
-  })
-  .catch(() => {
-    this.$message.error("There was an error submitting your donation.");
-  });
-},
-
-    submitDonation() {
-  if (!this.form.consent) {
-    this.$message.warning("You must consent to data collection before submitting.");
-    return;
-  }
-
-  const formData = new FormData();
-  for (let key in this.form) {
-    if (this.form[key] !== null && this.form[key] !== '') {
-      formData.append(key, this.form[key]);
-    }
-  }
-
-  axios.post('/api/donations/', formData, {
-    headers: {
-      'X-CSRFToken': this.getCookie('csrftoken'),
-      'Content-Type': 'multipart/form-data'
-    }
-  })
-  .then(() => {
-    this.$message.success("Donation submitted successfully!");
-    this.resetForm();
-    this.showModal = false;
-    this.fetchDonations();
-  })
-  .catch(() => {
-    this.$message.error("There was an error submitting your donation.");
-  });
-},
-
+      axios.post('/api/donations/', formData, {
+        headers: {
+          'X-CSRFToken': this.getCookie('csrftoken'),
+          'Content-Type': 'multipart/form-data'
+        }
+      })
+      .then((res) => {
+        if (res.data.payment_url) {
+          window.location.href = res.data.payment_url;
+        } else {
+          this.$message.success("Donation submitted successfully!");
+          this.resetForm();
+          this.showModal = false;
+          this.fetchDonations();
+        }
+      })
+      .catch(() => {
+        this.$message.error("There was an error submitting your donation.");
+      });
+    },
     resetForm() {
       this.form = {
         type: 'money', amount: '', payment_method: '',

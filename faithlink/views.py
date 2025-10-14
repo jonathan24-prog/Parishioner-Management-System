@@ -262,15 +262,21 @@ def editparishioner(request, pk):
 def attendance_scan_view(request):
     return render(request, 'attendance.html')
 
+from django.shortcuts import render
+from django.http import HttpResponse
+from django.utils.dateparse import parse_date
+from openpyxl import Workbook
+from .models import Attendance, Parishioner, Event
 
+# ================================
+# 📋 Attendance History Page
+# ================================
 def attendance_history(request):
-    # Get all attendance records sorted by newest date first
     attendance_records = Attendance.objects.select_related(
         'parishioner__user', 'event'
     ).order_by('-date')
 
     all_parishioners = Parishioner.objects.select_related('user').all()
-
     absentee_summary = []
 
     # Unique Mass dates
@@ -281,7 +287,6 @@ def attendance_history(request):
         .distinct()
     )
 
-    # Process Mass-based attendance
     for mass_date in unique_mass_dates:
         for parishioner in all_parishioners:
             was_present = Attendance.objects.filter(
@@ -289,7 +294,6 @@ def attendance_history(request):
                 date=mass_date,
                 event__isnull=True
             ).exists()
-
             if not was_present:
                 absentee_summary.append({
                     'name': f"{parishioner.user.first_name} {parishioner.user.last_name}",
@@ -297,21 +301,18 @@ def attendance_history(request):
                     'type': "Sunday Mass"
                 })
 
-    # Process Event-based attendance
+    # Unique Events
     unique_events = Attendance.objects.filter(event__isnull=False).values('date', 'event').distinct()
-
     for entry in unique_events:
         event_date = entry['date']
         event_id = entry['event']
         event_obj = Event.objects.get(pk=event_id)
-
         for parishioner in all_parishioners:
             was_present = Attendance.objects.filter(
                 parishioner=parishioner,
                 date=event_date,
                 event_id=event_id
             ).exists()
-
             if not was_present:
                 absentee_summary.append({
                     'name': f"{parishioner.user.first_name} {parishioner.user.last_name}",
@@ -319,7 +320,6 @@ def attendance_history(request):
                     'type': f"Event: {event_obj.name}"
                 })
 
-    # ✅ Add "type" column in attendance records (Mass type or Event name)
     attendance_data = []
     for record in attendance_records:
         attendance_data.append({
@@ -334,6 +334,74 @@ def attendance_history(request):
         'attendance_data': attendance_data,
         'absentee_summary': absentee_summary
     })
+
+
+# ================================
+# 📥 Download Attendance to Excel (with Filters)
+# ================================
+def download_attendance_excel(request):
+    # Get filters from GET parameters
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    event_type = request.GET.get('event_type')
+    status = request.GET.get('status')
+
+    # Base queryset
+    attendance_records = Attendance.objects.select_related(
+        'parishioner__user', 'event'
+    ).order_by('-date')
+
+    # Apply date filters
+    if start_date:
+        attendance_records = attendance_records.filter(date__gte=parse_date(start_date))
+    if end_date:
+        attendance_records = attendance_records.filter(date__lte=parse_date(end_date))
+
+    # Apply event/mass type filters
+    if event_type:
+        if event_type == "Event":
+            attendance_records = attendance_records.filter(event__isnull=False)
+        else:
+            attendance_records = attendance_records.filter(
+                event__isnull=True,
+                mass_type__iexact=event_type.replace(" Mass", "")
+            )
+
+    # Apply status filters
+    if status:
+        attendance_records = attendance_records.filter(status__iexact=status)
+
+    # Create Excel workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Attendance Records"
+    ws.append(["#", "Parishioner", "Date", "Time", "Status", "Type"])
+
+    for i, record in enumerate(attendance_records, start=1):
+        ws.append([
+            i,
+            f"{record.parishioner.user.first_name} {record.parishioner.user.last_name}",
+            record.date.strftime("%Y-%m-%d"),
+            record.time.strftime("%I:%M %p"),
+            record.status,
+            record.event.name if record.event else f"{record.mass_type} Mass"
+        ])
+
+    # Add summary sheet for filters
+    ws2 = wb.create_sheet("Filter Summary")
+    ws2.append(["Filter", "Value"])
+    ws2.append(["Start Date", start_date or "All"])
+    ws2.append(["End Date", end_date or "All"])
+    ws2.append(["Event Type", event_type or "All"])
+    ws2.append(["Status", status or "All"])
+
+    # Return Excel file as HTTP response
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = 'attachment; filename="filtered_attendance_report.xlsx"'
+    wb.save(response)
+    return response
 
 
 from django.http import JsonResponse
@@ -552,7 +620,58 @@ def export_attendance_excel(request):
     df.to_excel(response, index=False)
     return response
 
+from rest_framework import viewsets, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
 
+from .models import CertificateRequest, SacramentRecord
+from .serializers import CertificateRequestSerializer
+
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework import status
+
+class CertificateRequestViewSet(viewsets.ModelViewSet):
+    serializer_class = CertificateRequestSerializer
+    queryset = CertificateRequest.objects.all()
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_staff:  # Admin sees all
+            return CertificateRequest.objects.all().order_by('-created_at')
+        return CertificateRequest.objects.filter(parishioner=user.parishioner).order_by('-created_at')
+
+    def perform_create(self, serializer):
+        return serializer.save(parishioner=self.request.user.parishioner)
+
+    # ✅ Approve
+    @action(detail=True, methods=["post"], url_path="approve")
+    def approve_request(self, request, pk=None):
+        cert_request = self.get_object()
+        cert_request.status = "Approved"
+        cert_request.save()
+
+        from .models import SacramentRecord
+        SacramentRecord.objects.create(
+            parishioner=cert_request.parishioner,
+            sacrament=cert_request.sacrament,
+            date_received=now().date(),
+            place_received="Parish Church",
+            officiant=request.user.get_full_name() if request.user.is_staff else None,
+            notes=f"Certificate issued from request #{cert_request.id}"
+        )
+
+        return Response({"status": "approved"}, status=status.HTTP_200_OK)
+
+    # ✅ Reject
+    @action(detail=True, methods=["post"], url_path="reject")
+    def reject_request(self, request, pk=None):
+        cert_request = self.get_object()
+        cert_request.status = "Rejected"
+        cert_request.save()
+
+        return Response({"status": "rejected"}, status=status.HTTP_200_OK)
 
 # ---------------- Financial Excel ----------------
 @login_required
@@ -1042,16 +1161,44 @@ class EventViewSet(viewsets.ModelViewSet):
         
 #         serializer.save(donor=parishioner)
 # from rest_framework import serializers
+from rest_framework import viewsets, serializers
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import ValidationError
+from .models import Donation, Parishioner
+from .serializers import DonationSerializer
+from django.contrib.auth.models import User
 
 class DonationViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for creating, listing, updating donations.
+    """
     queryset = Donation.objects.select_related('donor').all().order_by('-date')
     serializer_class = DonationSerializer
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        donor_id = self.request.data.get('donor')
+        """
+        Handles creation of a donation.
+        - For normal users: automatically links donation to their parishioner profile.
+        - For admins: can optionally specify a donor_id.
+        """
         user = self.request.user
-        parishioner = Parishioner.objects.get(id=donor_id)
+        donor_id = self.request.data.get('donor')  # optional
+
+        # Admin override: if user is staff and donor_id provided
+        if user.is_staff and donor_id:
+            try:
+                parishioner = Parishioner.objects.get(id=donor_id)
+            except Parishioner.DoesNotExist:
+                raise serializers.ValidationError({"donor": "Invalid parishioner ID."})
+        else:
+            # Normal user: get their own parishioner profile
+            try:
+                parishioner = Parishioner.objects.get(user=user)
+            except Parishioner.DoesNotExist:
+                raise serializers.ValidationError({"donor": "Parishioner profile not found for this user."})
+
+        # Save donation with linked parishioner and default status
         serializer.save(donor=parishioner, status="pending")
 
 
@@ -1123,9 +1270,23 @@ def user_donations(request):
         return Response([], status=200)
 
 
+# faithlink/views.py
+from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.parsers import MultiPartParser, FormParser
+from .models import Parishioner
+from .serializers import ParishionerSerializer
+from .forms import ParishionerFormUpdate
 
+# ===== REST API for Vue.js =====
 class MyProfileAPIView(APIView):
     permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
 
     def get(self, request):
         try:
@@ -1134,6 +1295,41 @@ class MyProfileAPIView(APIView):
             return Response(serializer.data)
         except Parishioner.DoesNotExist:
             return Response({"error": "Profile not found."}, status=404)
+
+    def patch(self, request):
+        try:
+            parishioner = Parishioner.objects.get(user=request.user)
+        except Parishioner.DoesNotExist:
+            return Response({"error": "Profile not found."}, status=404)
+
+        serializer = ParishionerSerializer(parishioner, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+# ===== Django Form-Based Version =====
+@login_required
+def profile_view(request):
+    parishioner = Parishioner.objects.get(user=request.user)
+    return render(request, 'faithlink/profile.html', {'parishioner': parishioner})
+
+@login_required
+def profile_edit(request):
+    parishioner = Parishioner.objects.get(user=request.user)
+    if request.method == 'POST':
+        form = ParishionerFormUpdate(request.POST, request.FILES, instance=parishioner)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Profile updated successfully!')
+            return redirect('profile_view')
+    else:
+        form = ParishionerFormUpdate(instance=parishioner)
+
+    return render(request, 'faithlink/profile_edit.html', {'form': form})
+
+
 
 class FundraisingCampaignViewSet(viewsets.ModelViewSet):
     queryset = FundraisingCampaign.objects.all()
@@ -1148,29 +1344,56 @@ class FundraisingCampaignViewSet(viewsets.ModelViewSet):
     def perform_destroy(self, instance):
         instance.delete()
 
+
+from rest_framework import viewsets, permissions
+
 class PrayerRequestViewSet(viewsets.ModelViewSet):
-    queryset = PrayerRequest.objects.all()
+    queryset = PrayerRequest.objects.all().order_by('-date_requested')
     serializer_class = PrayerRequestSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
     def perform_create(self, serializer):
         serializer.save(parishioner=self.request.user)
 
-
 from rest_framework import viewsets, permissions
 from .models import SacramentRecord
 from .serializers import SacramentRecordSerializer
-
 class SacramentRecordViewSet(viewsets.ModelViewSet):
     serializer_class = SacramentRecordSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         queryset = SacramentRecord.objects.all()
+        
+        # filter by parishioner
         parishioner_id = self.request.query_params.get('parishioner_id')
         if parishioner_id:
             queryset = queryset.filter(parishioner_id=parishioner_id)
-        # else: do NOT filter, return all records
+
+        # filter by sacrament
+        sacrament = self.request.query_params.get('sacrament')
+        if sacrament:
+            queryset = queryset.filter(sacrament=sacrament)
+
+        # filter by archived state
+        archived = self.request.query_params.get('archived')
+        if archived is not None:
+            if archived.lower() == "true":
+                queryset = queryset.filter(archived=True)
+            elif archived.lower() == "false":
+                queryset = queryset.filter(archived=False)
+
+        # optional search
+        search = self.request.query_params.get('search')
+        if search:
+            queryset = queryset.filter(
+                Q(parishioner__first_name__icontains=search) |
+                Q(parishioner__last_name__icontains=search) |
+                Q(sacrament__icontains=search)
+            )
+
         return queryset
+
 
 from rest_framework.decorators import action
 from rest_framework.response import Response

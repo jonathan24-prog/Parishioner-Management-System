@@ -1,68 +1,178 @@
 {% extends 'faithlink/basemenu.html' %}
 
 {% block content %}
-<div id="app" style="padding: 20px;">
-  <h2 style="font-size: 2.5rem; font-weight: 700; color: #ce7659; margin-bottom: 20px;">
-    Sacramental Records (Admin)
-  </h2>
+<div id="app" class="p-6 bg-gray-50 min-h-screen">
 
-  <!-- Filters -->
-  <el-form inline>
-    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 10px;">
-      
-      <!-- Add Record Button -->
-      <el-button
-        type="primary"
-        :disabled="!selectedParishioner"
-        @click="showAddModal = true"
-      >
-        Add Sacrament Record
-      </el-button>
+  <!-- ================= Header ================= -->
+  <div class="flex items-center justify-between mb-8">
+    <h2 class="text-3xl font-bold text-[#6c63ff] tracking-tight">
+      Sacramental Records (Admin)
+    </h2>
+    <el-button
+      type="primary"
+      icon="el-icon-circle-plus-outline"
+      size="large"
+      class="rounded-xl px-5 py-2"
+      @click="showAddModal = true"
+    >
+      Add Record
+    </el-button>
+  </div>
 
-      <!-- Parishioner Selector -->
-      <el-form-item label="Select Parishioner" style="margin-bottom: 0;">
-        <el-select
-          v-model="selectedParishioner"
-          placeholder="Choose a parishioner"
-          filterable
-          @change="fetchRecords"
-          style="min-width: 200px;"
-        >
-          <el-option :key="null" label="All" :value="null"></el-option>
-          <el-option
-            v-for="p in parishioners"
-            :key="p.id"
-            :label="p.first_name + ' ' + p.last_name"
-            :value="p.id"
-          ></el-option>
-        </el-select>
-      </el-form-item>
-
-      <!-- Sacrament Type Selector -->
-      <el-form-item label="Sacrament Type" style="margin-bottom: 0;">
-        <el-select
-          v-model="selectedSacrament"
-          placeholder="Choose a sacrament"
+  <!-- ================= Tabs ================= -->
+  <el-tabs type="border-card" class="rounded-lg shadow-md bg-white">
+    
+    <!-- ================= Active Records Tab ================= -->
+    <el-tab-pane label="Sacramental Records">
+      <!-- Filters -->
+      <div class="flex flex-wrap items-center gap-4 mb-6">
+        <el-input
+          v-model="searchQuery"
+          placeholder="Search parishioner or sacrament..."
+          prefix-icon="el-icon-search"
           clearable
-          @change="fetchRecords"
-          style="min-width: 200px;"
-        >
-          <el-option :key="null" label="All" :value="null"></el-option>
+          @input="fetchRecords"
+          class="w-72"
+        ></el-input>
+
+        <el-select v-model="selectedParishioner" placeholder="Filter by parishioner" clearable @change="fetchRecords">
+          <el-option :key="null" label="All Parishioners" :value="null"></el-option>
+          <el-option v-for="p in parishioners" :key="p.id" :label="p.first_name + ' ' + p.last_name" :value="p.id"></el-option>
+        </el-select>
+
+        <el-select v-model="selectedSacrament" placeholder="Filter by sacrament" clearable @change="fetchRecords">
+          <el-option :key="null" label="All Sacraments" :value="null"></el-option>
           <el-option label="Baptism" value="Baptism"></el-option>
           <el-option label="Confirmation" value="Confirmation"></el-option>
           <el-option label="Eucharist" value="Eucharist"></el-option>
           <el-option label="Marriage" value="Marriage"></el-option>
           <el-option label="Anointing of the Sick" value="Anointing of the Sick"></el-option>
         </el-select>
-      </el-form-item>
-    </div>
-  </el-form>
+      </div>
 
-  <!-- Add Record Modal -->
+      <!-- Records Table -->
+      <el-card shadow="never" class="rounded-xl overflow-hidden">
+        <el-table
+          :data="records"
+          stripe
+          border
+          class="rounded-xl"
+          v-loading="loading"
+          element-loading-text="Loading Sacrament Records..."
+        >
+          <el-table-column prop="parishioner_name" label="Parishioner" sortable></el-table-column>
+          <el-table-column prop="sacrament" label="Sacrament" sortable></el-table-column>
+          <el-table-column prop="date_received" label="Date Received"></el-table-column>
+          <el-table-column prop="place_received" label="Place Received"></el-table-column>
+          <el-table-column prop="officiant" label="Officiant"></el-table-column>
+          <el-table-column prop="notes" label="Notes" min-width="240"></el-table-column>
+
+          <el-table-column label="Certificate">
+            <template #default="scope">
+              <el-tag v-if="scope.row.certificate_requested" type="success">Requested</el-tag>
+              <el-tag v-else type="info">Not Requested</el-tag>
+            </template>
+          </el-table-column>
+
+          <!-- Actions -->
+          <el-table-column label="Actions" width="280" fixed="right">
+            <template #default="scope">
+              <div class="flex gap-2">
+                <el-button size="medium" type="primary" plain icon="el-icon-edit" @click="openEditModal(scope.row)">Edit</el-button>
+                <el-button size="medium" type="success" plain icon="el-icon-download" :disabled="!scope.row.certificate_requested" @click="downloadCertificate(scope.row.id)">Download</el-button>
+                <el-button size="medium" type="warning" plain icon="el-icon-folder-delete" @click="archiveRecord(scope.row.id)">Archive</el-button>
+              </div>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <!-- Empty State -->
+        <div v-if="!loading && records.length === 0" class="text-center text-gray-500 py-6">
+          No records found.
+        </div>
+      </el-card>
+    </el-tab-pane>
+
+    <!-- ================= Archived Records Tab ================= -->
+    <el-tab-pane label="Archived Records">
+      <el-card shadow="never" class="rounded-xl overflow-hidden">
+        <el-table
+          :data="archivedRecords"
+          stripe
+          border
+          v-loading="loadingArchived"
+          element-loading-text="Loading Archived Records..."
+          class="rounded-xl"
+        >
+          <el-table-column prop="parishioner_name" label="Parishioner"></el-table-column>
+          <el-table-column prop="sacrament" label="Sacrament"></el-table-column>
+          <el-table-column prop="date_received" label="Date Received"></el-table-column>
+          <el-table-column prop="place_received" label="Place Received"></el-table-column>
+          <el-table-column prop="officiant" label="Officiant"></el-table-column>
+          <el-table-column prop="notes" label="Notes"></el-table-column>
+          <el-table-column label="Actions" width="200">
+            <template #default="scope">
+              <el-button size="medium" type="primary" plain icon="el-icon-refresh" @click="recoverRecord(scope.row.id)">Recover</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <div v-if="!loadingArchived && archivedRecords.length === 0" class="text-center text-gray-500 py-6">
+          No archived records found.
+        </div>
+      </el-card>
+    </el-tab-pane>
+
+    <!-- ================= Certificate Requests Tab ================= -->
+    <el-tab-pane>
+      <span slot="label">
+        Certificate Requests
+        <el-badge v-if="pendingRequestsCount > 0" :value="pendingRequestsCount" type="danger"></el-badge>
+      </span>
+
+      <el-card shadow="never" class="rounded-xl overflow-hidden">
+        <el-table
+          :data="certificateRequests"
+          stripe
+          border
+          v-loading="loadingRequests"
+          element-loading-text="Loading Requests..."
+          class="rounded-xl"
+        >
+          <el-table-column prop="parishioner_name" label="Parishioner"></el-table-column>
+          <el-table-column prop="sacrament" label="Sacrament"></el-table-column>
+          <el-table-column prop="request_date" label="Requested On"></el-table-column>
+          <el-table-column prop="status" label="Status">
+            <template #default="scope">
+              <el-tag
+                :type="scope.row.status === 'Approved' ? 'success' : (scope.row.status === 'Rejected' ? 'danger' : 'warning')"
+              >
+                {{ scope.row.status }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="Actions" width="220">
+            <template #default="scope">
+              <div class="flex gap-2">
+                <el-button size="medium" type="success" plain @click="approveRequest(scope.row.id)" :disabled="scope.row.status !== 'Pending'">Approve</el-button>
+                <el-button size="medium" type="danger" plain @click="rejectRequest(scope.row.id)" :disabled="scope.row.status !== 'Pending'">Reject</el-button>
+              </div>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <!-- Empty State -->
+        <div v-if="!loadingRequests && certificateRequests.length === 0" class="text-center text-gray-500 py-6">
+          No certificate requests found.
+        </div>
+      </el-card>
+    </el-tab-pane>
+  </el-tabs>
+
+  <!-- ================= ADD RECORD MODAL ================= -->
   <el-dialog title="Add Sacrament Record" :visible.sync="showAddModal" width="500px">
-    <el-form :model="newRecord" ref="sacramentForm" label-width="120px">
-      
-      <el-form-item label="Sacrament" prop="sacrament">
+    <el-form label-width="140px">
+      <el-form-item label="Sacrament">
         <el-select v-model="newRecord.sacrament" placeholder="Select Sacrament">
           <el-option label="Baptism" value="Baptism"></el-option>
           <el-option label="Confirmation" value="Confirmation"></el-option>
@@ -71,99 +181,58 @@
           <el-option label="Anointing of the Sick" value="Anointing of the Sick"></el-option>
         </el-select>
       </el-form-item>
-
-      <el-form-item label="Date Received" prop="date_received">
-        <el-date-picker
-          v-model="newRecord.date_received"
-          type="date"
-          placeholder="Select date"
-          style="width: 100%;"
-          value-format="yyyy-MM-dd"
-        ></el-date-picker>
+      <el-form-item label="Date Received">
+        <el-date-picker v-model="newRecord.date_received" type="date" placeholder="Pick a date"></el-date-picker>
       </el-form-item>
-
-      <el-form-item label="Place Received" prop="place_received">
+      <el-form-item label="Place Received">
         <el-input v-model="newRecord.place_received"></el-input>
       </el-form-item>
-
-      <el-form-item label="Officiant" prop="officiant">
+      <el-form-item label="Officiant">
         <el-input v-model="newRecord.officiant"></el-input>
       </el-form-item>
-
-      <el-form-item label="Notes" prop="notes">
+      <el-form-item label="Notes">
         <el-input type="textarea" v-model="newRecord.notes"></el-input>
       </el-form-item>
     </el-form>
-
     <div slot="footer" class="dialog-footer">
       <el-button @click="showAddModal = false">Cancel</el-button>
-      <el-button type="primary" @click="submitRecord">Add</el-button>
+      <el-button type="primary" @click="submitRecord">Save</el-button>
     </div>
   </el-dialog>
 
-  <!-- Records Table -->
-  <el-table
-    v-if="records.length > 0"
-    :data="records"
-    style="width: 100%; margin-top: 20px;"
-    v-loading="loading"
-    element-loading-text="Loading Sacrament Records..."
-  >
-    <el-table-column prop="parishioner_name" label="Parishioner" sortable></el-table-column>
-    <el-table-column prop="sacrament" label="Sacrament" sortable></el-table-column>
-    <el-table-column prop="date_received" label="Date Received" ></el-table-column>
-    <el-table-column prop="place_received" label="Place Received"></el-table-column>
-    <el-table-column prop="officiant" label="Officiant"></el-table-column>
-    <el-table-column  prop="notes"label="Notes" width="300">
-      
-    </el-table-column>
+  <!-- ================= EDIT RECORD MODAL ================= -->
+  <el-dialog title="Edit Sacrament Record" :visible.sync="showEditModal" width="500px">
+    <el-form label-width="140px">
+      <el-form-item label="Sacrament">
+        <el-select v-model="editRecord.sacrament">
+          <el-option label="Baptism" value="Baptism"></el-option>
+          <el-option label="Confirmation" value="Confirmation"></el-option>
+          <el-option label="Eucharist" value="Eucharist"></el-option>
+          <el-option label="Marriage" value="Marriage"></el-option>
+          <el-option label="Anointing of the Sick" value="Anointing of the Sick"></el-option>
+        </el-select>
+      </el-form-item>
+      <el-form-item label="Date Received">
+        <el-date-picker v-model="editRecord.date_received" type="date" value-format="yyyy-MM-dd" placeholder="Pick a date"></el-date-picker>
+      </el-form-item>
+      <el-form-item label="Place Received">
+        <el-input v-model="editRecord.place_received"></el-input>
+      </el-form-item>
+      <el-form-item label="Officiant">
+        <el-input v-model="editRecord.officiant"></el-input>
+      </el-form-item>
+      <el-form-item label="Notes">
+        <el-input type="textarea" v-model="editRecord.notes"></el-input>
+      </el-form-item>
+    </el-form>
+    <div slot="footer" class="dialog-footer">
+      <el-button @click="showEditModal = false">Cancel</el-button>
+      <el-button type="primary" @click="updateRecord">Update</el-button>
+    </div>
+  </el-dialog>
 
-    <el-table-column prop="certificate_requested" label="Certificate Requested">
-      <template #default="scope">
-        <span v-if="scope.row.certificate_requested">✅ Requested</span>
-        <span v-else>❌ No</span>
-      </template>
-    </el-table-column>
-    <el-table-column label="Actions" width="180">
-      <template #default="scope">
-        <el-button
-          size="mini"
-          type="success"
-          icon="el-icon-download"
-          @click="downloadCertificate(scope.row.id)"
-          :disabled="!scope.row.certificate_requested"
-        >Download</el-button>
-        <el-button
-          size="mini"
-          type="danger"
-          icon="el-icon-delete"
-          @click="deleteRecord(scope.row.id)"
-          circle
-        ></el-button>
-      </template>
-    </el-table-column>
-  </el-table>
-
-  <!-- Empty State -->
-  <div v-if="!loading && records.length === 0" style="margin-top: 20px; color: #999;">
-    No sacrament records found.
-  </div>
 </div>
 {% endblock %}
-
-<style>
-/* Make the notes scrollable if long */
-.notes-cell {
-  max-height: 80px;       /* Limit height */
-  overflow-y: auto;       /* Add scroll if needed */
-  white-space: normal;    /* Allow wrapping */
-  word-break: break-word; /* Handle long words */
-  padding: 4px;
-  border: 1px solid #eee;
-  border-radius: 4px;
-  background: #fafafa;
-}
-</style>
 
 {% block script %}
 <script>
@@ -171,86 +240,73 @@ new Vue({
   el: '#app',
   data() {
     return {
+      // Active Records
       records: [],
       parishioners: [],
       selectedParishioner: null,
       selectedSacrament: null,
+      searchQuery: '',
       showAddModal: false,
+      showEditModal: false,
       loading: false,
-      newRecord: {
-        sacrament: '',
-        date_received: '',
-        place_received: '',
-        officiant: '',
-        notes: '',
-      },
+      newRecord: { sacrament: '', date_received: '', place_received: '', officiant: '', notes: '' },
+      editRecord: { id: null, sacrament: '', date_received: '', place_received: '', officiant: '', notes: '' },
+
+      // Archived Records
+      archivedRecords: [],
+      loadingArchived: false,
+
+      // Certificate Requests
+      certificateRequests: [],
+      loadingRequests: false,
+      pendingRequestsCount: 0,
     };
   },
   methods: {
+    /* ---------------- SACRAMENT RECORDS ---------------- */
     fetchParishioners() {
       axios.get('/api/parishioners/')
-        .then(res => { this.parishioners = res.data; })
-        .catch(err => {
-          console.error('Failed to fetch parishioners:', err);
-          this.$notify.error({ title: 'Error', message: 'Could not load parishioners.' });
-        });
+        .then(res => { this.parishioners = res.data; });
     },
     fetchRecords() {
       this.loading = true;
-      let url = '/api/sacrament-records/?';
-
-      if (this.selectedParishioner !== null) {
-        url += `parishioner_id=${this.selectedParishioner}&`;
-      }
-      if (this.selectedSacrament !== null) {
-        url += `sacrament=${encodeURIComponent(this.selectedSacrament)}&`;
-      }
-
+      let url = '/api/sacrament-records/?archived=false&';
+      if (this.selectedParishioner !== null) url += `parishioner_id=${this.selectedParishioner}&`;
+      if (this.selectedSacrament !== null) url += `sacrament=${encodeURIComponent(this.selectedSacrament)}&`;
+      if (this.searchQuery) url += `search=${encodeURIComponent(this.searchQuery)}&`;
       axios.get(url)
         .then(res => { this.records = res.data; })
-        .catch(err => {
-          console.error('Failed to fetch records:', err);
-          this.$notify.error({ title: 'Error', message: 'Could not load sacramental records.' });
-        })
         .finally(() => { this.loading = false; });
     },
-    downloadCertificate(recordId) {
-      this.loading = true;
-      axios({
-        url: `/api/sacrament-record/${recordId}/certificate/`,
-        method: 'GET',
-        responseType: 'blob',
-      })
-      .then(response => {
-        const blob = new Blob([response.data], { type: 'application/pdf' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `Sacrament_Certificate_${recordId}.pdf`;
-        link.click();
-        URL.revokeObjectURL(link.href);
-      })
-      .catch(() => {
-        this.$notify.error({ title: 'Download Failed', message: 'Unable to download the certificate.' });
-      })
-      .finally(() => { this.loading = false; });
+    fetchArchivedRecords() {
+      this.loadingArchived = true;
+      axios.get('/api/sacrament-records/?archived=true')
+        .then(res => { this.archivedRecords = res.data; })
+        .finally(() => { this.loadingArchived = false; });
     },
     submitRecord() {
       if (!this.selectedParishioner) {
-        this.$notify.error({ title: 'Error', message: 'Please select a parishioner.' });
+        this.$notify.error({ 
+          title: 'Error', 
+          message: 'Please select a parishioner from the table filter before adding a record.' 
+        });
         return;
       }
 
-      const payload = {
-        parishioner: this.selectedParishioner,
-        sacrament: this.newRecord.sacrament,
-        date_received: this.newRecord.date_received || null,
-        place_received: this.newRecord.place_received || null,
-        officiant: this.newRecord.officiant || null,
-        notes: this.newRecord.notes || null,
+      const payload = { 
+        ...this.newRecord, 
+        parishioner: this.selectedParishioner 
       };
 
-      axios.post('/api/sacrament-records/', payload, {
-        headers: { 'X-CSRFToken': this.getCookie('csrftoken') }
+      if (payload.date_received instanceof Date) {
+        const year = payload.date_received.getFullYear();
+        const month = String(payload.date_received.getMonth() + 1).padStart(2, '0');
+        const day = String(payload.date_received.getDate()).padStart(2, '0');
+        payload.date_received = `${year}-${month}-${day}`;
+      }
+
+      axios.post('/api/sacrament-records/', payload, { 
+        headers: { 'X-CSRFToken': this.getCookie('csrftoken') } 
       })
       .then(() => {
         this.$notify({ title: 'Success', message: 'Record added', type: 'success' });
@@ -258,39 +314,93 @@ new Vue({
         this.resetForm();
         this.fetchRecords();
       })
-      .catch(error => {
-        console.error('Failed to add:', error);
-        const msg = error.response?.data ? JSON.stringify(error.response.data) : 'Error occurred';
-        this.$notify.error({ title: 'Error', message: msg });
+      .catch(err => {
+        console.error(err.response?.data || err);
+        this.$notify.error({ title: 'Error', message: 'Failed to save record.' });
       });
     },
-    deleteRecord(id) {
-      this.$confirm('Are you sure to delete this record?', 'Warning', {
-        confirmButtonText: 'Yes',
-        cancelButtonText: 'No',
-        type: 'warning'
-      }).then(() => {
-        axios.delete(`/api/sacrament-records/${id}/`, {
-          headers: { 'X-CSRFToken': this.getCookie('csrftoken') }
-        })
+    openEditModal(record) {
+      this.editRecord = { ...record };
+      this.showEditModal = true;
+    },
+    updateRecord() {
+      axios.put(`/api/sacrament-records/${this.editRecord.id}/`, this.editRecord, {
+        headers: { 'X-CSRFToken': this.getCookie('csrftoken') }
+      })
+      .then(() => {
+        this.$notify({ title: 'Updated', message: 'Record updated successfully', type: 'success' });
+        this.showEditModal = false;
+        this.fetchRecords();
+      });
+    },
+    archiveRecord(id) {
+      this.$confirm('Are you sure to archive this record?', 'Warning', { confirmButtonText: 'Yes', cancelButtonText: 'No', type: 'warning' })
         .then(() => {
-          this.$notify({ title: 'Deleted', message: 'Record removed', type: 'success' });
-          this.fetchRecords();
-        })
-        .catch(() => {
-          this.$notify.error({ title: 'Error', message: 'Delete failed' });
+          axios.patch(`/api/sacrament-records/${id}/`, { archived: true }, { headers: { 'X-CSRFToken': this.getCookie('csrftoken') } })
+            .then(() => {
+              this.$notify({ title: 'Archived', message: 'Record archived', type: 'success' });
+              this.fetchRecords();
+              this.fetchArchivedRecords();
+            });
         });
-      }).catch(() => {});
+    },
+    recoverRecord(id) {
+      this.$confirm('Recover this record?', 'Confirm', { confirmButtonText: 'Yes', cancelButtonText: 'No', type: 'info' })
+        .then(() => {
+          axios.patch(`/api/sacrament-records/${id}/`, { archived: false }, { headers: { 'X-CSRFToken': this.getCookie('csrftoken') } })
+            .then(() => {
+              this.$notify({ title: 'Recovered', message: 'Record recovered', type: 'success' });
+              this.fetchRecords();
+              this.fetchArchivedRecords();
+            });
+        });
+    },
+    downloadCertificate(recordId) {
+      axios({ url: `/api/sacrament-record/${recordId}/certificate/`, method: 'GET', responseType: 'blob' })
+        .then(response => {
+          const blob = new Blob([response.data], { type: 'application/pdf' });
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(blob);
+          link.download = `Sacrament_Certificate_${recordId}.pdf`;
+          link.click();
+          URL.revokeObjectURL(link.href);
+        });
     },
     resetForm() {
       this.newRecord = { sacrament: '', date_received: '', place_received: '', officiant: '', notes: '' };
     },
+
+    /* ---------------- CERTIFICATE REQUESTS ---------------- */
+    fetchCertificateRequests() {
+      this.loadingRequests = true;
+      axios.get('/api/certificate-requests/')
+        .then(res => {
+          this.certificateRequests = res.data.sort((a, b) => new Date(b.request_date) - new Date(a.request_date));
+          this.pendingRequestsCount = this.certificateRequests.filter(r => r.status === "Pending").length;
+        })
+        .finally(() => { this.loadingRequests = false; });
+    },
+    approveRequest(id) {
+      axios.post(`/api/certificate-requests/${id}/approve/`, {}, { headers: { 'X-CSRFToken': this.getCookie('csrftoken') } })
+        .then(() => {
+          this.$notify({ title: 'Approved', message: 'Certificate request approved', type: 'success' });
+          this.fetchCertificateRequests();
+          this.fetchRecords();
+        });
+    },
+    rejectRequest(id) {
+      axios.post(`/api/certificate-requests/${id}/reject/`, {}, { headers: { 'X-CSRFToken': this.getCookie('csrftoken') } })
+        .then(() => {
+          this.$notify({ title: 'Rejected', message: 'Request rejected', type: 'warning' });
+          this.fetchCertificateRequests();
+        });
+    },
+
+    /* ---------------- UTILS ---------------- */
     getCookie(name) {
       const cookies = document.cookie.split(';').map(c => c.trim());
       for (const cookie of cookies) {
-        if (cookie.startsWith(name + '=')) {
-          return decodeURIComponent(cookie.substring(name.length + 1));
-        }
+        if (cookie.startsWith(name + '=')) return decodeURIComponent(cookie.substring(name.length + 1));
       }
       return null;
     }
@@ -298,6 +408,8 @@ new Vue({
   created() {
     this.fetchParishioners();
     this.fetchRecords();
+    this.fetchArchivedRecords();
+    this.fetchCertificateRequests();
   }
 });
 </script>

@@ -1,72 +1,106 @@
 {% extends 'faithlink/basemenu.html' %}
+{% load static %}
 
 {% block content %}
 <div id="profile-app" class="container mx-auto py-8">
   <div class="max-w-4xl mx-auto bg-white shadow-md rounded-lg overflow-hidden">
     <!-- Profile Header -->
     <div class="flex flex-col items-center py-8 bg-gray-100">
-      <div v-if="parishioner.profile_picture" class="w-32 h-32 rounded-full overflow-hidden">
-        <img :src="parishioner.profile_picture" alt="Profile Picture" class="object-cover w-full h-full" />
+      <div v-if="parishioner.profile_picture" class="w-32 h-32 rounded-full overflow-hidden mb-4">
+        <img :src="parishioner.profile_picture" alt="Profile Picture" class="object-cover w-full h-full">
       </div>
-      <div v-else class="w-32 h-32 rounded-full bg-blue-500 text-white flex items-center justify-center text-4xl font-bold">
-        [[ initials ]]
+      <div v-else class="w-32 h-32 rounded-full bg-gray-300 mb-4 flex items-center justify-center text-gray-500">
+        No Image
       </div>
-
-      <h2 class="mt-4 text-2xl font-semibold text-gray-800">
-        [[ parishioner.first_name ]] [[ parishioner.last_name ]]
-      </h2>
-      <p class="text-gray-500">[[ parishioner.email ]]</p>
-
-      <!-- Edit button -->
-      <button v-if="!editMode" @click="editMode = true" class="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+      <h2 class="text-2xl font-semibold">{{ parishioner.name }}</h2>
+      <p class="text-gray-600">{{ parishioner.address }}</p>
+      <button @click="editMode = true" class="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
         Edit Profile
       </button>
     </div>
 
-    <!-- Profile Information / Edit Form -->
-    <div class="p-6">
-      <h3 class="text-xl font-semibold mb-4 text-gray-700">Personal Information</h3>
+    <!-- Profile Details -->
+    <div v-if="!editMode" class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div><strong>Gender:</strong> {{ parishioner.gender }}</div>
+      <div><strong>Marital Status:</strong> {{ parishioner.marital_status }}</div>
+      <div><strong>Contact:</strong> {{ parishioner.contact }}</div>
+      <div><strong>Emergency Contact:</strong> {{ parishioner.emergency_contact }}</div>
+      <div><strong>Nationality:</strong> {{ parishioner.nationality }}</div>
+      <div><strong>Family Group:</strong> {{ parishioner.family_group }}</div>
+      <div class="md:col-span-2"><strong>Address:</strong> {{ parishioner.address }}</div>
+      <div><strong>Birthdate:</strong> {{ parishioner.birthdate }}</div>
+    </div>
 
-      <div v-if="!editMode" class="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-700">
-        <div><strong>Gender:</strong> [[ getGenderText ]]</div>
-        <div><strong>Marital Status:</strong> [[ getMaritalStatusText ]]</div>
-        <div><strong>Phone:</strong> [[ parishioner.phone_number || '—' ]]</div>
-        <div><strong>Nationality:</strong> [[ parishioner.nationality || '—' ]]</div>
-        <div><strong>Address:</strong> [[ parishioner.address || '—' ]]</div>
-        <div><strong>Emergency Contact:</strong> [[ parishioner.emergency_contact || '—' ]]</div>
-        <div><strong>Family Group:</strong> [[ parishioner.family_group || '—' ]]</div>
-        <div><strong>Date Approved:</strong> [[ parishioner.date_approved || '—' ]]</div>
-      </div>
-
-      <form v-else @submit.prevent="updateProfile" enctype="multipart/form-data" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <!-- First Name -->
-        <div>
-          <label class="block text-gray-700 font-semibold mb-1">First Name</label>
-          <input type="text" v-model="parishioner.first_name" class="w-full border rounded px-3 py-2" required />
+    <!-- Edit Mode -->
+    <div v-else class="p-6">
+      <form @submit.prevent="updateProfile" enctype="multipart/form-data" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Name -->
+        <div class="md:col-span-2">
+          <label class="block font-semibold mb-1">Full Name</label>
+          <input type="text" v-model="parishioner.name" class="w-full border rounded px-3 py-2" />
         </div>
 
-        <!-- Last Name -->
+        <!-- Gender -->
         <div>
-          <label class="block text-gray-700 font-semibold mb-1">Last Name</label>
-          <input type="text" v-model="parishioner.last_name" class="w-full border rounded px-3 py-2" required />
+          <label class="block font-semibold mb-1">Gender</label>
+          <select v-model="parishioner.gender" class="w-full border rounded px-3 py-2">
+            <option disabled value="">Select Gender</option>
+            <option value="M">Male</option>
+            <option value="F">Female</option>
+          </select>
         </div>
 
-        <!-- Phone Number -->
+        <!-- Marital Status -->
         <div>
-          <label class="block text-gray-700 font-semibold mb-1">Phone Number</label>
-          <input type="text" v-model="parishioner.phone_number" class="w-full border rounded px-3 py-2" />
+          <label class="block font-semibold mb-1">Marital Status</label>
+          <select v-model="parishioner.marital_status" class="w-full border rounded px-3 py-2">
+            <option value="S">Single</option>
+            <option value="M">Married</option>
+            <option value="W">Widowed</option>
+            <option value="D">Divorced</option>
+          </select>
+        </div>
+
+        <!-- Contact -->
+        <div>
+          <label class="block font-semibold mb-1">Contact</label>
+          <input type="text" v-model="parishioner.contact" class="w-full border rounded px-3 py-2" />
+        </div>
+
+        <!-- Emergency Contact -->
+        <div>
+          <label class="block font-semibold mb-1">Emergency Contact</label>
+          <input type="text" v-model="parishioner.emergency_contact" class="w-full border rounded px-3 py-2" />
+        </div>
+
+        <!-- Nationality -->
+        <div>
+          <label class="block font-semibold mb-1">Nationality</label>
+          <input type="text" v-model="parishioner.nationality" class="w-full border rounded px-3 py-2" />
+        </div>
+
+        <!-- Family Group -->
+        <div>
+          <label class="block font-semibold mb-1">Family Group</label>
+          <input type="text" v-model="parishioner.family_group" class="w-full border rounded px-3 py-2" />
         </div>
 
         <!-- Address -->
-        <div>
-          <label class="block text-gray-700 font-semibold mb-1">Address</label>
+        <div class="md:col-span-2">
+          <label class="block font-semibold mb-1">Address</label>
           <textarea v-model="parishioner.address" class="w-full border rounded px-3 py-2" rows="3"></textarea>
         </div>
 
-        <!-- Profile Picture Upload -->
+        <!-- Birthdate -->
+        <div>
+          <label class="block font-semibold mb-1">Birthdate</label>
+          <input type="date" v-model="parishioner.birthdate" class="w-full border rounded px-3 py-2" />
+        </div>
+
+        <!-- Profile Picture -->
         <div class="md:col-span-2">
-          <label class="block text-gray-700 font-semibold mb-1">Profile Picture</label>
-          <input type="file" @change="handleFileUpload" accept="image/*" class="border rounded px-3 py-2 w-full" />
+          <label class="block font-semibold mb-1">Profile Picture</label>
+          <input type="file" @change="handleFileUpload" class="w-full border rounded px-3 py-2" />
         </div>
 
         <!-- Buttons -->
@@ -78,106 +112,52 @@
     </div>
   </div>
 </div>
-{% endblock %}
 
-{% block script %}
+<script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
 <script>
-  // CSRF token helper
-  function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-      const cookies = document.cookie.split(';');
-      for (let i=0; i < cookies.length; i++) {
-        const cookie = cookies[i].trim();
-        if (cookie.substring(0, name.length + 1) === (name + '=')) {
-          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-          break;
-        }
-      }
-    }
-    return cookieValue;
-  }
-
-  // Set CSRF token header for axios
-  axios.defaults.headers.common['X-CSRFToken'] = getCookie('csrftoken');
-
-  new Vue({
-    el: '#profile-app',
-    delimiters: ['[[', ']]'],
-    data() {
-      return {
-        parishioner: {},
-        editMode: false,
-        profilePictureFile: null,
-      };
+new Vue({
+  el: '#profile-app',
+  data: {
+    parishioner: {},
+    editMode: false,
+    profilePictureFile: null,
+  },
+  mounted() {
+    this.fetchProfile();
+  },
+  methods: {
+    fetchProfile() {
+      axios.get('/api/profile/')
+        .then(response => { this.parishioner = response.data; })
+        .catch(error => console.error('Error fetching profile:', error));
     },
-    computed: {
-      initials() {
-        const fn = this.parishioner?.first_name || '';
-        const ln = this.parishioner?.last_name || '';
-        return `${fn.charAt(0)}${ln.charAt(0)}`.toUpperCase();
-      },
-      getGenderText() {
-        const g = this.parishioner?.gender;
-        return { M: 'Male', F: 'Female', O: 'Other' }[g] || '—';
-      },
-      getMaritalStatusText() {
-        const m = this.parishioner?.marital_status;
-        return {
-          S: 'Single',
-          M: 'Married',
-          W: 'Widowed',
-          D: 'Divorced',
-          O: 'Other'
-        }[m] || '—';
-      }
+    handleFileUpload(event) {
+      this.profilePictureFile = event.target.files[0];
     },
-    methods: {
-      fetchProfile() {
-        axios.get('/api/profile/')
-          .then(response => {
-            this.parishioner = response.data;
-          })
-          .catch(error => {
-            console.error('Error fetching profile:', error);
-          });
-      },
-      handleFileUpload(event) {
-        this.profilePictureFile = event.target.files[0];
-      },
-      updateProfile() {
-        const formData = new FormData();
+    updateProfile() {
+      const formData = new FormData();
+      for (let key in this.parishioner) {
+        if (this.parishioner[key] !== null) formData.append(key, this.parishioner[key]);
+      }
+      if (this.profilePictureFile) formData.append('face_image', this.profilePictureFile);
 
-        formData.append('first_name', this.parishioner.first_name || '');
-        formData.append('last_name', this.parishioner.last_name || '');
-        formData.append('phone_number', this.parishioner.phone_number || '');
-        formData.append('address', this.parishioner.address || '');
-
-        if (this.profilePictureFile) {
-          formData.append('profile_picture', this.profilePictureFile);
-        }
-
-        axios.patch('/api/profile/', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        })
-          .then(response => {
-            this.parishioner = response.data;
-            this.editMode = false;
-            this.profilePictureFile = null;
-          })
-          .catch(error => {
-            console.error('Error updating profile:', error.response?.data || error);
-          });
-      },
-      cancelEdit() {
+      axios.patch('/api/profile/', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      .then(response => {
+        this.parishioner = response.data;
         this.editMode = false;
         this.profilePictureFile = null;
-        this.fetchProfile();
-      }
+      })
+      .catch(error => console.error('Error updating profile:', error.response?.data || error));
     },
-    created() {
+    cancelEdit() {
+      this.editMode = false;
       this.fetchProfile();
     }
-  });
+  }
+});
 </script>
 {% endblock %}

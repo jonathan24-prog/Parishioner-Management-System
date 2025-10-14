@@ -2,10 +2,24 @@
 
 {% block content %}
 <div id="app" style="padding: 20px;">
-  <h2 style="font-size: 2.5rem; font-weight: 700; color: #ce7659; margin-bottom: 20px;">
-    My Sacramental Records
-  </h2>
-
+  <div class="flex items-center justify-between mb-8">
+    <h2 class="text-3xl font-bold text-[#ce7659] tracking-tight">
+      My Sacramental Records
+    </h2>
+    <!-- =================== Request New Certificate Button =================== -->
+    <el-button
+      type="primary"
+      icon="el-icon-circle-plus-outline"
+      size="large"
+      class="rounded-xl px-3 py-2"
+      @click="showNewRequestForm = true"
+    >
+       Request a New Certificate
+    </el-button>
+  </div>
+  
+  
+  <!-- =================== Existing Records =================== -->
   <el-table
     :data="records"
     style="width: 100%;"
@@ -22,15 +36,13 @@
     <el-table-column label="Certificate Request" width="220">
       <template v-slot="scope">
         <el-button
-  type="primary"
-  size="mini"
-  icon="el-icon-document"
-  @click="requestCertificate(scope.row.id)"
-  :disabled="scope.row.certificate_requested"
-  v-text="scope.row.certificate_requested ? 'Requested' : 'Request Certificate'"
->
-</el-button>
-
+          type="primary" plain
+          size="mini"
+          icon="el-icon-document"
+          @click="requestCertificate(scope.row.id)"
+          :disabled="scope.row.certificate_requested"
+          v-text="scope.row.certificate_requested ? 'Requested' : 'Request Certificate'">
+        </el-button>
       </template>
     </el-table-column>
   </el-table>
@@ -38,6 +50,35 @@
   <div v-if="!loading && records.length === 0" style="margin-top: 20px; color: #999;">
     You have no recorded sacraments.
   </div>
+
+  
+
+  <!-- =================== Request New Certificate POPUP =================== -->
+  <el-dialog
+    title="Request a New Certificate"
+    :visible.sync="showNewRequestForm"
+    width="600px"
+  >
+    <el-form :model="newRequest" label-width="150px">
+      <el-form-item label="Sacrament Type">
+        <el-select v-model="newRequest.sacrament" placeholder="Select sacrament">
+          <el-option label="Baptism" value="Baptism"></el-option>
+          <el-option label="Confirmation" value="Confirmation"></el-option>
+          <el-option label="Eucharist" value="Eucharist"></el-option>
+          <el-option label="Marriage" value="Marriage"></el-option>
+          <el-option label="Anointing of the Sick" value="Anointing of the Sick"></el-option>
+        </el-select>
+      </el-form-item>
+      <el-form-item label="Notes (Optional)">
+        <el-input type="textarea" v-model="newRequest.notes" placeholder="Provide details if needed..."></el-input>
+      </el-form-item>
+    </el-form>
+
+    <span slot="footer" class="dialog-footer">
+      <el-button @click="showNewRequestForm = false">Cancel</el-button>
+      <el-button type="primary" @click="submitNewRequest">Submit Request</el-button>
+    </span>
+  </el-dialog>
 </div>
 {% endblock %}
 
@@ -49,45 +90,67 @@ new Vue({
     return {
       records: [],
       loading: false,
+      showNewRequestForm: false, // controls popup visibility
+      newRequest: {
+        sacrament: '',
+        notes: ''
+      }
     };
   },
   methods: {
+    // Load user’s existing sacrament records
     fetchMyRecords() {
       this.loading = true;
       axios.get('/api/sacrament-record/my/')
-        .then(res => {
-          this.records = res.data;
-        })
+        .then(res => { this.records = res.data; })
         .catch(err => {
           console.error('Failed to load records:', err);
           this.$notify.error({ title: 'Error', message: 'Could not load your sacrament records.' });
         })
-        .finally(() => {
-          this.loading = false;
-        });
+        .finally(() => { this.loading = false; });
     },
+
+    // Request certificate for an existing record
     requestCertificate(recordId) {
       this.loading = true;
       axios.post(`/api/sacrament-record/${recordId}/request_certificate/`, {}, {
-  headers: { 'X-CSRFToken': this.getCookie('csrftoken') }
-})
-
+        headers: { 'X-CSRFToken': this.getCookie('csrftoken') }
+      })
       .then(() => {
         this.$notify({ title: 'Requested', message: 'Your certificate request has been sent.', type: 'success' });
         const rec = this.records.find(r => r.id === recordId);
         if (rec) rec.certificate_requested = true;
       })
-      .catch(error => {
-        console.error('Error requesting certificate:', error);
-        this.$notify.error({
-          title: 'Request Failed',
-          message: 'Unable to request the certificate.',
-        });
+      .catch(err => {
+        console.error('Error requesting certificate:', err);
+        this.$notify.error({ title: 'Request Failed', message: 'Unable to request the certificate.' });
       })
-      .finally(() => {
-        this.loading = false;
-      });
+      .finally(() => { this.loading = false; });
     },
+
+    // Submit new certificate request (popup form)
+    submitNewRequest() {
+      if (!this.newRequest.sacrament) {
+        this.$notify.error({ title: 'Error', message: 'Please select a sacrament.' });
+        return;
+      }
+      this.loading = true;
+      axios.post('/api/certificate-requests/', this.newRequest, {
+        headers: { 'X-CSRFToken': this.getCookie('csrftoken') }
+      })
+      .then(() => {
+        this.$notify({ title: 'Requested', message: 'Your new certificate request has been submitted.', type: 'success' });
+        this.newRequest = { sacrament: '', notes: '' }; // reset form
+        this.showNewRequestForm = false; // close popup after success
+      })
+      .catch(err => {
+        console.error('Error submitting request:', err);
+        this.$notify.error({ title: 'Request Failed', message: 'Unable to submit your certificate request.' });
+      })
+      .finally(() => { this.loading = false; });
+    },
+
+    // Helper to get CSRF cookie
     getCookie(name) {
       let cookieValue = null;
       if (document.cookie && document.cookie !== '') {
